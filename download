@@ -1,0 +1,21 @@
+{
+  "name": "Love 4 Dogs",
+  "short_name": "Love 4 Dogs",
+  "description": "Invoice and schedule management for Millie Ruth & Ayres",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8f4fd",
+  "theme_color": "#5bbce4",
+  "icons": [
+    {
+      "src": "/logo192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
