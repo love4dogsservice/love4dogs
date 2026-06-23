@@ -1,274 +1,61 @@
-import { useState, useEffect } from 'react'
-import Head from 'next/head'
-import { supabase } from '../lib/supabase'
-import { COLORS, formatDate, formatDateShort, padNum } from '../lib/helpers'
-import InvoiceForm from '../components/InvoiceForm'
-import InvoiceDetail from '../components/InvoiceDetail'
-import Schedule from '../components/Schedule'
-import Toast from '../components/Toast'
+import { createClient } from '@supabase/supabase-js'
 
-function StatCard({ label, value, color }) {
-  return (
-    <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-      <div style={{ fontSize: '1.3rem', fontWeight: 900, color: color || COLORS.navy }}>{value}</div>
-      <div style={{ fontSize: '0.62rem', color: '#888', fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
-    </div>
-  )
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
 
-function InvoiceCard({ inv, onClick }) {
-  const periodStr = inv.service_period_start
-    ? `${formatDateShort(inv.service_period_start)}${inv.service_period_end ? ' – ' + formatDateShort(inv.service_period_end) : ''}`
-    : null
+export default async function handler(req, res) {
+  if (req.method === 'POST') {
+    const { id, ...body } = req.body
 
-  return (
-    <div onClick={onClick} style={{
-      background: '#fff', borderRadius: 14, padding: '14px 16px', marginBottom: 10,
-      boxShadow: '0 2px 10px rgba(0,0,0,0.07)', cursor: 'pointer',
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      borderLeft: `4px solid ${inv.paid ? COLORS.blue : COLORS.coral}`,
-    }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <span style={{ fontWeight: 900, color: COLORS.navy, fontSize: '0.95rem' }}>#{inv.invoice_number}</span>
-          <span style={{
-            background: inv.paid ? COLORS.lightGreen : COLORS.lightRed,
-            color: inv.paid ? COLORS.green : COLORS.coral,
-            fontSize: '0.6rem', fontWeight: 800, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', flexShrink: 0,
-          }}>{inv.paid ? 'Paid' : 'Unpaid'}</span>
-        </div>
-        <div style={{ fontWeight: 700, color: '#333', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {inv.client_name}
-        </div>
-        <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 2 }}>
-          {inv.dog_name && `🐾 ${inv.dog_name}`}
-          {inv.dog_name && periodStr && ' · '}
-          {periodStr}
-          {!periodStr && formatDate(inv.created_at)}
-        </div>
-      </div>
-      <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-        <div style={{ fontWeight: 900, color: COLORS.coral, fontSize: '1.1rem' }}>${Number(inv.total).toFixed(2)}</div>
-        <div style={{ color: '#ccc', fontSize: '0.8rem' }}>›</div>
-      </div>
-    </div>
-  )
-}
-
-export default function Home() {
-  const [tab, setTab] = useState('invoices') // invoices | schedule
-  const [view, setView] = useState('home') // home | new | detail
-  const [invoices, setInvoices] = useState([])
-  const [activeInv, setActiveInv] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
-
-  const showToast = (msg) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2500)
-  }
-
-  const loadInvoices = async () => {
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (!error && data) setInvoices(data)
-    setLoading(false)
-  }
-
-  useEffect(() => { loadInvoices() }, [])
-
-  const nextNum = () => {
-    if (invoices.length === 0) return '001'
-    const max = Math.max(...invoices.map(i => parseInt(i.invoice_number) || 0))
-    return padNum(max + 1)
-  }
-
-  const handleSave = async (formData) => {
-    const payload = activeInv ? { id: activeInv.id, ...formData } : formData
-
-    const res = await fetch('/api/invoices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-
-    const json = await res.json()
-
-    if (!res.ok || json.error) {
-      throw new Error(json.error || 'Save failed')
+    const payload = {
+      client_id: body.client_id || null,
+      client_name: body.client_name || '',
+      dog_names: body.dog_names || null,
+      period_start: body.period_start || null,
+      period_end: body.period_end || null,
+      special_notes: body.special_notes || null,
+      payment_notes: body.payment_notes || null,
+      line_items: body.line_items || [],
+      total: parseFloat(body.total) || 0,
     }
 
-    await loadInvoices()
-    setActiveInv(json.data)
-    showToast(activeInv ? 'Invoice updated!' : 'Invoice saved!')
-    setView('detail')
-  }
+    let data, error
 
-  const handleTogglePaid = async () => {
-    const { data, error } = await supabase
-      .from('invoices')
-      .update({ paid: !activeInv.paid, updated_at: new Date().toISOString() })
-      .eq('id', activeInv.id)
-      .select()
-      .single()
-    if (!error && data) {
-      setActiveInv(data)
-      await loadInvoices()
+    if (id) {
+      const r = await supabase.from('invoices').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id).select().single()
+      data = r.data; error = r.error
+    } else {
+      const { data: existing } = await supabase.from('invoices').select('invoice_number').order('created_at', { ascending: false }).limit(1)
+      let nextNum = '001'
+      if (existing && existing.length > 0) {
+        const max = Math.max(...existing.map(i => parseInt(i.invoice_number) || 0))
+        nextNum = String(max + 1).padStart(3, '0')
+      }
+      const r = await supabase.from('invoices').insert([{ ...payload, invoice_number: nextNum, paid: false }]).select().single()
+      data = r.data; error = r.error
     }
+
+    if (error) {
+      console.error('Invoice save error:', error)
+      return res.status(400).json({ error: error.message })
+    }
+
+    // Mark schedule jobs as invoiced
+    if (body.job_ids && body.job_ids.length > 0) {
+      await supabase.from('schedule').update({ invoiced: true }).in('id', body.job_ids)
+    }
+
+    return res.status(200).json({ data })
   }
 
-  const handleDelete = async () => {
-    await supabase.from('invoices').delete().eq('id', activeInv.id)
-    await loadInvoices()
-    setActiveInv(null)
-    setView('home')
-    showToast('Invoice deleted')
+  if (req.method === 'DELETE') {
+    const { id } = req.body
+    const { error } = await supabase.from('invoices').delete().eq('id', id)
+    if (error) return res.status(400).json({ error: error.message })
+    return res.status(200).json({ ok: true })
   }
 
-  // Invoice form
-  if (view === 'new') {
-    return (
-      <>
-        <Head><title>{activeInv ? 'Edit Invoice' : 'New Invoice'} — Love 4 Dogs</title></Head>
-        <InvoiceForm
-          initial={activeInv}
-          nextNum={nextNum()}
-          onSave={handleSave}
-          onCancel={() => setView(activeInv ? 'detail' : 'home')}
-        />
-      </>
-    )
-  }
-
-  // Invoice detail
-  if (view === 'detail' && activeInv) {
-    return (
-      <>
-        <Head><title>Invoice #{activeInv.invoice_number} — Love 4 Dogs</title></Head>
-        <InvoiceDetail
-          inv={activeInv}
-          onEdit={() => setView('new')}
-          onBack={() => { setActiveInv(null); setView('home') }}
-          onTogglePaid={handleTogglePaid}
-          onDelete={handleDelete}
-        />
-      </>
-    )
-  }
-
-  // Home with tabs
-  const unpaid = invoices.filter(i => !i.paid)
-  const paid = invoices.filter(i => i.paid)
-  const totalOwed = unpaid.reduce((a, b) => a + Number(b.total), 0)
-
-  return (
-    <>
-      <Head>
-        <title>Love 4 Dogs</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#5bbce4" />
-      </Head>
-
-      <div style={{ background: '#e8f4fd', minHeight: '100vh' }}>
-        {toast && <Toast msg={toast} />}
-
-        {/* Header */}
-        <div style={{ background: COLORS.blue, padding: '18px 20px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src="/logo192.png" alt="Love 4 Dogs" style={{ width: 38, height: 38, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.8)' }} />
-              <div>
-                <div style={{ fontSize: '1.2rem', color: '#fff', fontWeight: 900, lineHeight: 1.1 }}>Love 4 Dogs</div>
-                <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.72rem', fontWeight: 600 }}>Millie Ruth &amp; Ayres</div>
-              </div>
-            </div>
-            {tab === 'invoices' && (
-              <button onClick={() => { setActiveInv(null); setView('new') }}
-                style={{ background: COLORS.coral, color: '#fff', border: 'none', padding: '9px 18px', borderRadius: 18, fontSize: '0.85rem', fontWeight: 800, cursor: 'pointer' }}>
-                + Invoice
-              </button>
-            )}
-          </div>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 0 }}>
-            {[
-              { id: 'invoices', label: '🧾 Invoices' },
-              { id: 'schedule', label: '📅 Schedule' },
-            ].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{
-                  flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
-                  background: tab === t.id ? '#fff' : 'transparent',
-                  color: tab === t.id ? COLORS.navy : 'rgba(255,255,255,0.85)',
-                  fontWeight: 800, fontSize: '0.85rem',
-                  borderRadius: tab === t.id ? '12px 12px 0 0' : 0,
-                  borderBottom: tab === t.id ? 'none' : '3px solid transparent',
-                  transition: 'all 0.2s',
-                }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Invoice tab */}
-        {tab === 'invoices' && (
-          <div style={{ padding: '14px 16px', maxWidth: 700, margin: '0 auto' }}>
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '60px', color: '#888' }}>Loading...</div>
-            ) : invoices.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.08)' }}>
-                <div style={{ fontSize: '3rem', marginBottom: 12 }}>🐶</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: COLORS.navy, marginBottom: 8 }}>No invoices yet</div>
-                <div style={{ color: '#777', fontSize: '0.9rem', marginBottom: 20 }}>Tap + Invoice to get started</div>
-                <button onClick={() => { setActiveInv(null); setView('new') }}
-                  style={{ background: COLORS.coral, color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 20, fontSize: '1rem', fontWeight: 800, cursor: 'pointer' }}>
-                  + New Invoice
-                </button>
-              </div>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
-                  <StatCard label="Total" value={invoices.length} />
-                  <StatCard label="Unpaid" value={unpaid.length} color={COLORS.coral} />
-                  <StatCard label="Owed" value={`$${totalOwed.toFixed(2)}`} color={COLORS.darkBlue} />
-                </div>
-
-                {unpaid.length > 0 && (
-                  <>
-                    <SectionLabel>Unpaid</SectionLabel>
-                    {unpaid.map(inv => (
-                      <InvoiceCard key={inv.id} inv={inv} onClick={() => { setActiveInv(inv); setView('detail') }} />
-                    ))}
-                  </>
-                )}
-                {paid.length > 0 && (
-                  <>
-                    <SectionLabel style={{ marginTop: unpaid.length ? 14 : 0 }}>Paid</SectionLabel>
-                    {paid.map(inv => (
-                      <InvoiceCard key={inv.id} inv={inv} onClick={() => { setActiveInv(inv); setView('detail') }} />
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Schedule tab */}
-        {tab === 'schedule' && <Schedule />}
-      </div>
-    </>
-  )
-}
-
-function SectionLabel({ children, style }) {
-  return (
-    <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', color: '#888', letterSpacing: 1, marginBottom: 8, ...style }}>
-      {children}
-    </div>
-  )
+  res.status(405).json({ error: 'Method not allowed' })
 }

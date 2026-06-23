@@ -1,0 +1,196 @@
+export const SERVICES = [
+  { name: '-- Select Service --', rate: 0, type: 'none' },
+  { name: 'Dog Walking', rate: 2.50, type: 'time' },
+  { name: 'Feeding & Potty Break', rate: 4.00, type: 'visit' },
+  { name: 'Potty Break Only', rate: 3.00, type: 'visit' },
+  { name: 'Playtime & Companionship', rate: 2.50, type: 'time' },
+]
+
+export const COLORS = {
+  blue: '#5bbce4',
+  lightBlue: '#d6eef9',
+  coral: '#e05a3a',
+  darkBlue: '#1a6fa8',
+  navy: '#1a3a5c',
+  green: '#2d8a5a',
+  lightGreen: '#e8f8f0',
+  lightRed: '#fef0ed',
+  purple: '#9b59b6',
+}
+
+export const SERVICE_COLORS = {
+  1: '#5bbce4',
+  2: '#e05a3a',
+  3: '#2d8a5a',
+  4: '#9b59b6',
+}
+
+export function calcLineTotal(svcIdx, qty) {
+  if (svcIdx < 1 || !qty || qty <= 0) return 0
+  const s = SERVICES[svcIdx]
+  if (s.type === 'time') return Math.ceil(qty / 15) * 2.50
+  return qty * s.rate
+}
+
+export function getRateLabel(svcIdx) {
+  if (svcIdx < 1) return ''
+  const s = SERVICES[svcIdx]
+  return s.type === 'time' ? '$2.50/15min' : `$${s.rate.toFixed(2)}/visit`
+}
+
+export function getQtyLabel(svcIdx) {
+  if (svcIdx < 1) return ''
+  return SERVICES[svcIdx].type === 'time' ? 'min' : 'visits'
+}
+
+export function getDefaultQty(svcIdx) {
+  if (svcIdx < 1) return ''
+  return SERVICES[svcIdx].type === 'time' ? '30' : '1'
+}
+
+export function formatDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+export function formatDateShort(iso) {
+  if (!iso) return ''
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+export function formatTime(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const hour = parseInt(h)
+  return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`
+}
+
+export function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
+export function getDaysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+export function getFirstDayOfMonth(year, month) {
+  return new Date(year, month, 1).getDay()
+}
+
+export function dateToKey(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+export function padNum(n) {
+  return String(n).padStart(3, '0')
+}
+
+export function buildShareText(inv) {
+  const lines = (inv.line_items || [])
+    .filter(r => r.service_idx > 0)
+    .map(r => {
+      const tot = calcLineTotal(r.service_idx, parseFloat(r.qty))
+      return `  ${SERVICES[r.service_idx]?.name}${r.date ? ` (${formatDateShort(r.date)})` : ''} — $${tot.toFixed(2)}`
+    }).join('\n')
+
+  const period = inv.period_start
+    ? `${inv.period_start}${inv.period_end ? ' – ' + inv.period_end : ''}`
+    : ''
+
+  return `Love 4 Dogs Invoice #${inv.invoice_number}
+Client: ${inv.client_name}${inv.dog_names ? ` | Dog(s): ${inv.dog_names}` : ''}${period ? `\nPeriod: ${period}` : ''}
+
+${lines}
+
+Total Due: $${Number(inv.total).toFixed(2)}
+
+${inv.payment_notes || 'Payment due upon receipt. Cash or Venmo accepted.'}
+
+Questions? Call/text 601-946-3924
+— Millie Ruth & Ayres, Love 4 Dogs`
+}
+
+export const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+export const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+// Voice parsing helpers
+export function parseVoiceJob(transcript, clients = []) {
+  const text = transcript.toLowerCase()
+  const result = { client_name: '', dog_name: '', service_idx: 1, job_date: '', job_time: '', notes: '' }
+
+  // Match service type
+  if (text.includes('feed') || text.includes('potty') && text.includes('food')) result.service_idx = 2
+  else if (text.includes('potty')) result.service_idx = 3
+  else if (text.includes('play') || text.includes('companion')) result.service_idx = 4
+  else result.service_idx = 1 // default walk
+
+  // Match client from client list
+  for (const c of clients) {
+    if (text.includes(c.name.toLowerCase())) {
+      result.client_name = c.name
+      // Match dog
+      for (const d of (c.dogs || [])) {
+        if (text.includes(d.name.toLowerCase())) {
+          result.dog_name = d.name
+          result.dog_id = d.id
+          break
+        }
+      }
+      result.client_id = c.id
+      break
+    }
+  }
+
+  // Parse time
+  const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i)
+  if (timeMatch) {
+    let h = parseInt(timeMatch[1])
+    const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0
+    const ampm = timeMatch[3].toLowerCase()
+    if (ampm === 'pm' && h !== 12) h += 12
+    if (ampm === 'am' && h === 12) h = 0
+    result.job_time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
+  }
+
+  // Parse date
+  const today = new Date()
+  const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday']
+  for (let i = 0; i < days.length; i++) {
+    if (text.includes(days[i])) {
+      const diff = (i - today.getDay() + 7) % 7 || 7
+      const d = new Date(today)
+      d.setDate(today.getDate() + diff)
+      result.job_date = d.toISOString().split('T')[0]
+      break
+    }
+  }
+
+  if (!result.job_date) {
+    // Try "today" / "tomorrow"
+    if (text.includes('today')) result.job_date = todayISO()
+    else if (text.includes('tomorrow')) {
+      const t = new Date()
+      t.setDate(t.getDate() + 1)
+      result.job_date = t.toISOString().split('T')[0]
+    }
+  }
+
+  if (!result.job_date) {
+    // Try month + day like "june 5" or "june 5th"
+    const months = ['january','february','march','april','may','june','july','august','september','october','november','december']
+    for (let mi = 0; mi < months.length; mi++) {
+      if (text.includes(months[mi])) {
+        const numMatch = text.match(new RegExp(months[mi] + '\\s+(\\d{1,2})'))
+        if (numMatch) {
+          const year = today.getFullYear()
+          result.job_date = `${year}-${String(mi+1).padStart(2,'0')}-${String(parseInt(numMatch[1])).padStart(2,'0')}`
+          break
+        }
+      }
+    }
+  }
+
+  return result
+}

@@ -1,20 +1,13 @@
 {
-  "name": "love4dogs",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "next": "14.2.3",
-    "react": "^18",
-    "react-dom": "^18",
-    "@supabase/supabase-js": "^2.39.0"
-  },
-  "devDependencies": {
-    "eslint": "^8",
-    "eslint-config-next": "14.2.3"
-  }
+  "name": "Love 4 Dogs",
+  "short_name": "Love 4 Dogs",
+  "description": "Business tool for Millie Ruth & Ayres",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#e8f4fd",
+  "theme_color": "#5bbce4",
+  "icons": [
+    { "src": "/logo192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo512.png", "sizes": "512x512", "type": "image/png" }
+  ]
 }
