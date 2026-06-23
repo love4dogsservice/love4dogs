@@ -40,10 +40,10 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
     }
   }
 
-  const filledRows = (inv.rows || []).filter(r => r.svc > 0)
+  const filledRows = (inv.line_items || []).filter(r => r.service_idx > 0)
 
-  const periodStr = inv.service_period_start
-    ? `${inv.service_period_start}${inv.service_period_end ? ' – ' + inv.service_period_end : ''}`
+  const periodStr = inv.period_start
+    ? `${inv.period_start}${inv.period_end ? ' – ' + inv.period_end : ''}`
     : ''
 
   return (
@@ -68,7 +68,7 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
             <div>
               <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1.15rem' }}>{inv.client_name}</div>
-              {inv.dog_name && <div style={{ color: '#666', fontSize: '0.85rem', marginTop: 2 }}>🐾 {inv.dog_name}</div>}
+              {inv.dog_names && <div style={{ color: '#666', fontSize: '0.85rem', marginTop: 2 }}>🐾 {inv.dog_names}</div>}
               {periodStr && <div style={{ color: '#888', fontSize: '0.78rem', marginTop: 2 }}>{periodStr}</div>}
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -129,7 +129,7 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
           <div style={{ padding: '14px 20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${COLORS.lightBlue}` }}>
               <InfoRow label="Client" value={inv.client_name} />
-              {inv.dog_name && <InfoRow label="Dog" value={inv.dog_name} />}
+              {inv.dog_names && <InfoRow label="Dog(s)" value={inv.dog_names} />}
               {periodStr && <div style={{ gridColumn: '1 / -1' }}><InfoRow label="Period" value={periodStr} /></div>}
             </div>
 
@@ -149,17 +149,17 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
               </thead>
               <tbody>
                 {filledRows.map((r, i) => {
-                  const tot = calcLineTotal(r.svc, parseFloat(r.qty))
+                  const tot = calcLineTotal(r.service_idx, parseFloat(r.qty))
                   return (
                     <tr key={i} style={{ borderBottom: '1px dashed #eee' }}>
                       <td style={{ padding: '8px 8px', color: COLORS.navy, fontWeight: 600 }}>
-                        {SERVICES[r.svc]?.name}
-                        <div style={{ color: '#888', fontSize: '0.68rem' }}>{getRateLabel(r.svc)}</div>
+                        {SERVICES[r.service_idx]?.name}
+                        <div style={{ color: '#888', fontSize: '0.68rem' }}>{getRateLabel(r.service_idx)}</div>
                       </td>
                       <td style={{ padding: '8px 8px', color: '#555', fontSize: '0.78rem' }}>
                         {r.date ? formatDateShort(r.date) : ''}
                       </td>
-                      <td style={{ padding: '8px 8px', color: '#555' }}>{r.qty} {getQtyLabel(r.svc)}</td>
+                      <td style={{ padding: '8px 8px', color: '#555' }}>{r.qty} {getQtyLabel(r.service_idx)}</td>
                       <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 800, color: COLORS.coral }}>${tot.toFixed(2)}</td>
                     </tr>
                   )
