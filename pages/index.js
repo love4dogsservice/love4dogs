@@ -78,20 +78,26 @@ export default function Home() {
   useEffect(() => { loadAll() }, [])
 
   const handleTogglePaid = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('invoices')
       .update({ paid: !activeInv.paid, updated_at: new Date().toISOString() })
       .eq('id', activeInv.id)
       .select()
       .single()
-    if (data) { setActiveInv(data); await loadAll() }
+    if (error) { console.error('togglePaid error:', error); return }
+    if (data) {
+      await loadAll()
+      setActiveInv(data)
+      showToast(data.paid ? 'Marked as paid!' : 'Marked as unpaid')
+    }
   }
 
   const handleDelete = async () => {
-    await supabase.from('invoices').delete().eq('id', activeInv.id)
-    await loadAll()
+    const { error } = await supabase.from('invoices').delete().eq('id', activeInv.id)
+    if (error) { console.error('delete error:', error); return }
     setActiveInv(null)
     setView('home')
+    await loadAll()
     showToast('Invoice deleted')
   }
 
@@ -118,7 +124,7 @@ export default function Home() {
         <InvoiceBuilder
           clients={clients}
           dogs={dogs}
-          onSaved={(inv) => { loadAll(); setActiveInv(inv); setView('detail'); showToast('Invoice saved!') }}
+          onSaved={async (inv) => { await loadAll(); setActiveInv(inv); setView('detail'); showToast('Invoice saved!') }}
           onCancel={() => setView('home')}
         />
       </>
