@@ -12,6 +12,8 @@ export default async function handler(req, res) {
 
   const { id, job_ids, ...body } = req.body
 
+  console.log('[invoices] incoming body:', JSON.stringify(req.body, null, 2))
+
   const payload = {
     client_name: body.client_name || '',
     client_id: body.client_id || null,
@@ -20,9 +22,11 @@ export default async function handler(req, res) {
     period_end: body.period_end || null,
     special_notes: body.special_notes || null,
     payment_notes: body.payment_notes || null,
-    line_items: body.line_items || [],
+    line_items: JSON.stringify(body.line_items || []),
     total: parseFloat(body.total) || 0,
   }
+
+  console.log('[invoices] payload to Supabase:', JSON.stringify(payload, null, 2))
 
   let data, error
 

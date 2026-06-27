@@ -91,6 +91,16 @@ export default function Clients({ clients, dogs, onRefresh }) {
   )
 }
 
+function ClientField({ label, value, onChange, placeholder }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || ''}
+        style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }} />
+    </div>
+  )
+}
+
 function ClientForm({ initial, initialDogs, onSave, onCancel }) {
   const [name, setName] = useState(initial?.name || '')
   const [phone, setPhone] = useState(initial?.phone || '')
@@ -134,14 +144,6 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
     await onSave()
   }
 
-  const F = ({ label, value, onChange, placeholder }) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder || ''}
-        style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }} />
-    </div>
-  )
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 200, overflowY: 'auto' }}>
       <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', width: '100%', maxWidth: 700, margin: '0 auto', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -150,10 +152,10 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: '#aaa' }}>✕</button>
         </div>
 
-        <F label="Client Name *" value={name} onChange={setName} />
-        <F label="Phone" value={phone} onChange={setPhone} placeholder="601-555-1234" />
-        <F label="Address" value={address} onChange={setAddress} placeholder="123 Main St" />
-        <F label="Notes" value={notes} onChange={setNotes} placeholder="Gate code, parking, etc." />
+        <ClientField label="Client Name *" value={name} onChange={setName} />
+        <ClientField label="Phone" value={phone} onChange={setPhone} placeholder="601-555-1234" />
+        <ClientField label="Address" value={address} onChange={setAddress} placeholder="123 Main St" />
+        <ClientField label="Notes" value={notes} onChange={setNotes} placeholder="Gate code, parking, etc." />
 
         <div style={{ marginTop: 16, marginBottom: 8 }}>
           <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '0.9rem', marginBottom: 10 }}>🐾 Dogs</div>

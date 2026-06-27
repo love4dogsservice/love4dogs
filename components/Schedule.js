@@ -76,11 +76,28 @@ export default function Schedule({ clients, dogs }) {
       setParsedJob(parsed)
       setListening(false)
     }
-    recognition.onerror = () => { setListening(false); showToast('Could not hear — try again') }
+    recognition.onerror = (e) => {
+      setListening(false)
+      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+        showToast('Microphone permission denied — check browser settings')
+      } else if (e.error === 'no-speech') {
+        showToast('No speech detected — try again')
+      } else if (e.error === 'audio-capture') {
+        showToast('No microphone found')
+      } else {
+        showToast(`Voice error: ${e.error || 'unknown'} — try again`)
+      }
+    }
     recognition.onend = () => setListening(false)
 
     recognitionRef.current = recognition
-    recognition.start()
+    try {
+      recognition.start()
+    } catch (err) {
+      setListening(false)
+      showToast('Could not start microphone — try again')
+      return
+    }
     setListening(true)
     setTranscript('')
     setParsedJob(null)
@@ -320,6 +337,15 @@ function ParsedRow({ label, value }) {
   )
 }
 
+function JobField({ label, children }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
+      {children}
+    </div>
+  )
+}
+
 function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [clientId, setClientId] = useState(initial?.client_id || '')
   const [dogId, setDogId] = useState(initial?.dog_id || '')
@@ -385,13 +411,6 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
     await onSave()
   }
 
-  const F = ({ label, children }) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>{label}</div>
-      {children}
-    </div>
-  )
-
   const inputStyle = { width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }
 
   return (
@@ -402,7 +421,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: '#aaa' }}>✕</button>
         </div>
 
-        <F label="Client">
+        <JobField label="Client">
           {clients.length > 0 ? (
             <select value={clientId} onChange={e => handleClientChange(e.target.value)} style={{ ...inputStyle }}>
               <option value="">-- Select Client --</option>
@@ -415,41 +434,41 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
           {clientId === '__manual__' && (
             <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Enter client name" style={{ ...inputStyle, marginTop: 8 }} />
           )}
-        </F>
+        </JobField>
 
         {clientDogs.length > 0 && (
-          <F label="Dog">
+          <JobField label="Dog">
             <select value={dogId} onChange={e => handleDogChange(e.target.value)} style={inputStyle}>
               <option value="">-- Select Dog --</option>
               {clientDogs.map(d => <option key={d.id} value={d.id}>{d.name}{d.breed ? ` (${d.breed})` : ''}</option>)}
             </select>
-          </F>
+          </JobField>
         )}
 
         {(!clientId || clientId === '__manual__') && (
-          <F label="Dog Name">
+          <JobField label="Dog Name">
             <input value={dogName} onChange={e => setDogName(e.target.value)} placeholder="Dog's name" style={inputStyle} />
-          </F>
+          </JobField>
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <F label="Date *">
+          <JobField label="Date *">
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-          </F>
-          <F label="Time">
+          </JobField>
+          <JobField label="Time">
             <input type="time" value={time} onChange={e => setTime(e.target.value)} style={inputStyle} />
-          </F>
+          </JobField>
         </div>
 
-        <F label="Service">
+        <JobField label="Service">
           <select value={svcType} onChange={e => setSvcType(parseInt(e.target.value))} style={inputStyle}>
             {SERVICES.slice(1).map((s, i) => <option key={i} value={i+1}>{s.name}</option>)}
           </select>
-        </F>
+        </JobField>
 
-        <F label="Notes">
+        <JobField label="Notes">
           <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any special instructions..." style={inputStyle} />
-        </F>
+        </JobField>
 
         <button onClick={handleSave} disabled={saving || !clientName.trim() || !date}
           style={{ width: '100%', marginTop: 16, background: saving || !clientName.trim() || !date ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', padding: '14px', borderRadius: 14, fontSize: '1rem', fontWeight: 800 }}>
