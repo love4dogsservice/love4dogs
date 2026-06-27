@@ -109,7 +109,11 @@ export default function Home() {
       body: JSON.stringify(payload),
     })
     const json = await res.json()
-    if (!res.ok || json.error) throw new Error(json.error || 'Save failed')
+    console.log('[handleManualSave] response:', json)
+    if (!res.ok || json.error) {
+      const msg = [json.error, json.hint, json.details].filter(Boolean).join(' | ')
+      throw new Error(msg || 'Save failed')
+    }
     await loadAll()
     setActiveInv(json.data)
     showToast(activeInv ? 'Invoice updated!' : 'Invoice saved!')

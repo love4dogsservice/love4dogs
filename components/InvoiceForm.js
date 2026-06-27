@@ -38,6 +38,7 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
     if (!clientName.trim()) { showToast('Please enter a client name'); return }
     setSaving(true)
     try {
+      console.log('[InvoiceForm] calling onSave')
       await onSave({
         client_id: initial?.client_id || null,
         client_name: clientName.trim(),
@@ -50,7 +51,8 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
         total,
       })
     } catch (e) {
-      showToast('Error saving — try again')
+      console.error('[InvoiceForm] save error:', e)
+      showToast('Error saving: ' + (e.message || e))
       setSaving(false)
     }
   }

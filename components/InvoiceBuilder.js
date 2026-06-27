@@ -86,10 +86,12 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
       body: JSON.stringify(payload),
     })
     const json = await res.json()
+    console.log('[InvoiceBuilder] save response:', json)
     setSaving(false)
 
     if (!res.ok || json.error) {
-      showToast('Error saving — try again')
+      const msg = [json.error, json.hint, json.details].filter(Boolean).join(' | ')
+      showToast('Error: ' + (msg || 'Save failed'))
       return
     }
 
