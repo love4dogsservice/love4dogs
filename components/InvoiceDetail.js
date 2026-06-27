@@ -40,7 +40,8 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
     }
   }
 
-  const filledRows = (inv.line_items || []).filter(r => r.service_idx > 0)
+  const lineItems = typeof inv.line_items === 'string' ? JSON.parse(inv.line_items) : (inv.line_items || [])
+  const filledRows = lineItems.filter(r => r.service_idx > 0)
 
   const periodStr = inv.period_start
     ? `${inv.period_start}${inv.period_end ? ' – ' + inv.period_end : ''}`

@@ -22,7 +22,9 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
   const [periodEnd, setPeriodEnd] = useState(initial?.period_end || '')
   const [specialNotes, setSpecialNotes] = useState(initial?.special_notes || '')
   const [paymentNotes, setPaymentNotes] = useState(initial?.payment_notes || 'Payment due upon receipt. Cash or Venmo accepted. Thank you! 🐾')
-  const [lineItems, setLineItems] = useState(initial?.line_items || emptyItems())
+  const [lineItems, setLineItems] = useState(
+    typeof initial?.line_items === 'string' ? JSON.parse(initial.line_items) : (initial?.line_items || emptyItems())
+  )
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
 
