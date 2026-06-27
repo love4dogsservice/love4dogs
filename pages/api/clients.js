@@ -15,8 +15,8 @@ export default async function handler(req, res) {
 async function handleClients(req, res) {
   console.log('[clients] hit —', req.method, new Date().toISOString())
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   console.log('[clients] SUPABASE_URL present:', !!supabaseUrl)
   console.log('[clients] SUPABASE_KEY present:', !!supabaseKey)
 

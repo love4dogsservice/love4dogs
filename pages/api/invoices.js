@@ -17,8 +17,8 @@ async function handleInvoices(req, res) {
   console.log('[invoices] hit —', req.method, new Date().toISOString())
 
   // Validate env vars before trying to use them
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   console.log('[invoices] SUPABASE_URL present:', !!supabaseUrl)
   console.log('[invoices] SUPABASE_KEY present:', !!supabaseKey)
 
