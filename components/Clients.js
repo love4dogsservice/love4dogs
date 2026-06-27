@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { COLORS } from '../lib/helpers'
 import Toast from './Toast'
 
@@ -22,6 +21,7 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
   const [notes, setNotes] = useState(initial?.notes || '')
   const [dogList, setDogList] = useState(initialDogs.length > 0 ? initialDogs : [{ name: '', breed: '', notes: '', isNew: true }])
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   const addDog = () => setDogList(prev => [...prev, { name: '', breed: '', notes: '', isNew: true }])
   const removeDog = (i) => setDogList(prev => prev.filter((_, idx) => idx !== i))
@@ -30,53 +30,30 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
   const handleSave = async () => {
     if (!name.trim()) return
     setSaving(true)
+    setError(null)
     try {
-      let clientId = initial?.id
-
-      if (initial) {
-        const { error } = await supabase
-          .from('clients')
-          .update({ name: name.trim(), phone, address, notes })
-          .eq('id', initial.id)
-        if (error) { console.error('clients update error:', error); throw error }
-      } else {
-        const { data, error } = await supabase
-          .from('clients')
-          .insert([{ name: name.trim(), phone, address, notes }])
-          .select()
-          .single()
-        console.log('clients insert result:', { data, error })
-        if (error) throw error
-        clientId = data.id
+      const method = initial ? 'PUT' : 'POST'
+      const body = {
+        name: name.trim(),
+        phone,
+        address,
+        notes,
+        dogs: dogList,
+        initialDogIds: initialDogs.map(d => d.id),
       }
+      if (initial) body.id = initial.id
 
-      for (const dog of dogList) {
-        if (!dog.name.trim()) continue
-        if (dog.id && !dog.isNew) {
-          const { error } = await supabase
-            .from('dogs')
-            .update({ name: dog.name, breed: dog.breed, notes: dog.notes })
-            .eq('id', dog.id)
-          if (error) console.error('dogs update error:', error)
-        } else {
-          const { error } = await supabase
-            .from('dogs')
-            .insert([{ client_id: clientId, name: dog.name, breed: dog.breed || '', notes: dog.notes || '' }])
-          console.log('dogs insert result:', { error })
-          if (error) console.error('dogs insert error:', error)
-        }
-      }
-
-      const keptIds = dogList.filter(d => d.id && !d.isNew).map(d => d.id)
-      const removedDogs = initialDogs.filter(d => !keptIds.includes(d.id))
-      for (const d of removedDogs) {
-        await supabase.from('dogs').delete().eq('id', d.id)
-      }
-
+      const res = await fetch('/api/clients', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Save failed')
       await onSave()
     } catch (err) {
-      console.error('handleSave error:', err)
-      alert('Error saving: ' + (err.message || JSON.stringify(err)))
+      console.error('ClientForm save error:', err)
+      setError(err.message || 'Error saving — check console')
     } finally {
       setSaving(false)
     }
@@ -89,6 +66,12 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
           <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem' }}>{initial ? 'Edit Client' : 'Add Client'}</div>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: '#aaa' }}>✕</button>
         </div>
+
+        {error && (
+          <div style={{ background: '#fff0ee', border: `1px solid ${COLORS.coral}`, borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: COLORS.coral, fontSize: '0.82rem', fontWeight: 700 }}>
+            ⚠ {error}
+          </div>
+        )}
 
         <ClientField label="Client Name *" value={name} onChange={setName} />
         <ClientField label="Phone" value={phone} onChange={setPhone} placeholder="601-555-1234" />
@@ -141,8 +124,9 @@ export default function Clients({ clients, dogs, onRefresh }) {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this client and all their dogs?')) return
-    await supabase.from('clients').delete().eq('id', id)
-    onRefresh()
+    const res = await fetch(`/api/clients?id=${id}`, { method: 'DELETE' })
+    if (!res.ok) { const j = await res.json(); alert('Delete failed: ' + j.error); return }
+    await onRefresh()
     showToast('Client deleted')
   }
 
