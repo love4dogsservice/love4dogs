@@ -1,21 +1,45 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
-
 export default async function handler(req, res) {
+  // Top-level catch so the function never drops the connection
+  try {
+    return await handleInvoices(req, res)
+  } catch (err) {
+    console.error('[invoices] unhandled crash:', err)
+    return res.status(500).json({
+      error: err.message || 'Internal server error',
+      stack: err.stack,
+    })
+  }
+}
+
+async function handleInvoices(req, res) {
   console.log('[invoices] hit —', req.method, new Date().toISOString())
-  console.log('[invoices] headers:', JSON.stringify(req.headers, null, 2))
-  console.log('[invoices] body:', JSON.stringify(req.body, null, 2))
+
+  // Validate env vars before trying to use them
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  console.log('[invoices] SUPABASE_URL present:', !!supabaseUrl)
+  console.log('[invoices] SUPABASE_KEY present:', !!supabaseKey)
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(500).json({
+      error: 'Missing Supabase environment variables',
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey,
+    })
+  }
+
+  // Create client inside handler so init errors are caught
+  const supabase = createClient(supabaseUrl, supabaseKey)
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  console.log('[invoices] body:', JSON.stringify(req.body, null, 2))
+
   if (!req.body || typeof req.body !== 'object') {
-    console.error('[invoices] body not parsed — check Content-Type header')
     return res.status(400).json({ error: 'Request body missing or not JSON' })
   }
 
@@ -33,7 +57,7 @@ export default async function handler(req, res) {
     total: parseFloat(body.total) || 0,
   }
 
-  console.log('[invoices] payload to Supabase:', JSON.stringify(payload, null, 2))
+  console.log('[invoices] payload:', JSON.stringify(payload, null, 2))
 
   let data, error
 
@@ -54,8 +78,14 @@ export default async function handler(req, res) {
       .select('invoice_number')
 
     if (fetchErr) {
-      console.error('[invoices] error fetching invoice numbers:', fetchErr)
-      return res.status(400).json({ error: fetchErr.message, details: fetchErr, stage: 'fetch_invoice_numbers' })
+      console.error('[invoices] fetch invoice_numbers error:', fetchErr)
+      return res.status(400).json({
+        error: fetchErr.message,
+        code: fetchErr.code,
+        hint: fetchErr.hint,
+        details: fetchErr.details,
+        stage: 'fetch_invoice_numbers',
+      })
     }
 
     let nextNum = '001'
@@ -74,20 +104,18 @@ export default async function handler(req, res) {
     error = result.error
   }
 
-  console.log('[invoices] Supabase result — data:', JSON.stringify(data), 'error:', JSON.stringify(error))
+  console.log('[invoices] result — data:', JSON.stringify(data), 'error:', JSON.stringify(error))
 
   if (error) {
     console.error('[invoices] Supabase error:', error)
     return res.status(400).json({
       error: error.message,
       code: error.code,
-      details: error.details,
       hint: error.hint,
-      full: error,
+      details: error.details,
     })
   }
 
-  // Mark schedule jobs as invoiced
   if (data && job_ids && job_ids.length > 0) {
     const { error: schedErr } = await supabase
       .from('schedule')
