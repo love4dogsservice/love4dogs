@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
-import { supabase } from '../lib/supabase'
-import { COLORS, formatDate, formatDateShort, padNum } from '../lib/helpers'
+import { COLORS, formatDate, formatDateShort } from '../lib/helpers'
 import Clients from '../components/Clients'
 import Schedule from '../components/Schedule'
 import InvoiceBuilder from '../components/InvoiceBuilder'
@@ -64,37 +63,38 @@ export default function Home() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   const loadAll = async () => {
-    const [invRes, clientRes, dogRes] = await Promise.all([
-      supabase.from('invoices').select('*').order('created_at', { ascending: false }),
-      supabase.from('clients').select('*').order('name'),
-      supabase.from('dogs').select('*').order('name'),
-    ])
-    if (invRes.data) setInvoices(invRes.data)
-    if (clientRes.data) setClients(clientRes.data)
-    if (dogRes.data) setDogs(dogRes.data)
-    setLoading(false)
+    try {
+      const res = await fetch('/api/data')
+      const json = await res.json()
+      if (json.invoices) setInvoices(json.invoices)
+      if (json.clients) setClients(json.clients)
+      if (json.dogs) setDogs(json.dogs)
+    } catch (err) {
+      console.error('[loadAll] error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { loadAll() }, [])
 
   const handleTogglePaid = async () => {
-    const { data, error } = await supabase
-      .from('invoices')
-      .update({ paid: !activeInv.paid, updated_at: new Date().toISOString() })
-      .eq('id', activeInv.id)
-      .select()
-      .single()
-    if (error) { console.error('togglePaid error:', error); return }
-    if (data) {
-      await loadAll()
-      setActiveInv(data)
-      showToast(data.paid ? 'Marked as paid!' : 'Marked as unpaid')
-    }
+    const res = await fetch('/api/invoices', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: activeInv.id, paid: !activeInv.paid }),
+    })
+    const json = await res.json()
+    if (!res.ok || json.error) { console.error('togglePaid error:', json.error); return }
+    await loadAll()
+    setActiveInv(json.data)
+    showToast(json.data.paid ? 'Marked as paid!' : 'Marked as unpaid')
   }
 
   const handleDelete = async () => {
-    const { error } = await supabase.from('invoices').delete().eq('id', activeInv.id)
-    if (error) { console.error('delete error:', error); return }
+    const res = await fetch(`/api/invoices?id=${activeInv.id}`, { method: 'DELETE' })
+    const json = await res.json()
+    if (!res.ok || json.error) { console.error('delete error:', json.error); return }
     setActiveInv(null)
     setView('home')
     await loadAll()
@@ -102,7 +102,8 @@ export default function Home() {
   }
 
   const handleManualSave = async (formData) => {
-    const payload = activeInv ? { id: activeInv.id, ...formData } : formData
+    const isEdit = !!activeInv
+    const payload = isEdit ? { id: activeInv.id, ...formData } : formData
     const res = await fetch('/api/invoices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -116,8 +117,8 @@ export default function Home() {
     }
     await loadAll()
     setActiveInv(json.data)
-    showToast(activeInv ? 'Invoice updated!' : 'Invoice saved!')
     setView('detail')
+    showToast(isEdit ? 'Invoice updated!' : 'Invoice saved!')
   }
 
   // ── Invoice builder (From Schedule) ──

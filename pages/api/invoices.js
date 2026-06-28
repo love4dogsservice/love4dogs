@@ -30,8 +30,32 @@ async function handleInvoices(req, res) {
     })
   }
 
-  // Create client inside handler so init errors are caught
   const supabase = createClient(supabaseUrl, supabaseKey)
+
+  // DELETE /api/invoices?id=xxx
+  if (req.method === 'DELETE') {
+    const { id } = req.query
+    if (!id) return res.status(400).json({ error: 'Missing id' })
+    console.log('[invoices] DELETE id:', id)
+    const { error } = await supabase.from('invoices').delete().eq('id', id)
+    if (error) { console.error('[invoices] delete error:', error); return res.status(400).json({ error: error.message }) }
+    return res.status(200).json({ ok: true })
+  }
+
+  // PATCH /api/invoices — toggle paid
+  if (req.method === 'PATCH') {
+    const { id, paid } = req.body
+    if (!id) return res.status(400).json({ error: 'Missing id' })
+    console.log('[invoices] PATCH id:', id, 'paid:', paid)
+    const { data, error } = await supabase
+      .from('invoices')
+      .update({ paid, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) { console.error('[invoices] patch error:', error); return res.status(400).json({ error: error.message }) }
+    return res.status(200).json({ data })
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
