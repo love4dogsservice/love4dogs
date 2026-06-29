@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
 import {
   COLORS, SERVICES, SERVICE_COLORS, getDaysInMonth, getFirstDayOfMonth,
   dateToKey, todayISO, MONTH_NAMES, DAY_NAMES, formatTime, parseVoiceJob
@@ -24,8 +23,11 @@ export default function Schedule({ clients, dogs }) {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   const loadJobs = async () => {
-    const { data } = await supabase.from('schedule').select('*').order('job_date').order('job_time')
-    if (data) setJobs(data)
+    const res = await fetch('/api/schedule')
+    if (res.ok) {
+      const data = await res.json()
+      setJobs(data)
+    }
   }
 
   useEffect(() => { loadJobs() }, [])
@@ -52,7 +54,7 @@ export default function Schedule({ clients, dogs }) {
   const selectedJobs = selectedDateKey ? (jobsByDate[selectedDateKey] || []) : []
 
   const handleDeleteJob = async (id) => {
-    await supabase.from('schedule').delete().eq('id', id)
+    await fetch(`/api/schedule?id=${id}`, { method: 'DELETE' })
     loadJobs()
     showToast('Job removed')
   }
@@ -110,17 +112,21 @@ export default function Schedule({ clients, dogs }) {
 
   const saveVoiceJob = async () => {
     if (!parsedJob || !parsedJob.job_date) { showToast('Please include a date'); return }
-    await supabase.from('schedule').insert([{
-      client_id: parsedJob.client_id || null,
-      client_name: parsedJob.client_name || 'Unknown',
-      dog_id: parsedJob.dog_id || null,
-      dog_name: parsedJob.dog_name || '',
-      job_date: parsedJob.job_date,
-      job_time: parsedJob.job_time || null,
-      service_type: parsedJob.service_idx || 1,
-      notes: parsedJob.notes || '',
-      invoiced: false,
-    }])
+    await fetch('/api/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: parsedJob.client_id || null,
+        client_name: parsedJob.client_name || 'Unknown',
+        dog_id: parsedJob.dog_id || null,
+        dog_name: parsedJob.dog_name || '',
+        job_date: parsedJob.job_date,
+        job_time: parsedJob.job_time || null,
+        service_type: parsedJob.service_idx || 1,
+        notes: parsedJob.notes || '',
+        invoiced: false,
+      }),
+    })
     await loadJobs()
     setVoiceMode(false)
     setTranscript('')
@@ -388,9 +394,17 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
       service_type: svcType, notes: notes.trim(), invoiced: false,
     }
     if (initial) {
-      await supabase.from('schedule').update(payload).eq('id', initial.id)
+      await fetch('/api/schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: initial.id, ...payload }),
+      })
     } else {
-      await supabase.from('schedule').insert([payload])
+      await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
     }
 
     if (time && 'Notification' in window && Notification.permission === 'granted') {
