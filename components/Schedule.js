@@ -16,7 +16,6 @@ export default function Schedule({ clients, dogs }) {
   const [voiceMode, setVoiceMode] = useState(false)
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [parsedJob, setParsedJob] = useState(null)
   const [toast, setToast] = useState(null)
   const recognitionRef = useRef(null)
 
@@ -75,8 +74,21 @@ export default function Schedule({ clients, dogs }) {
       const text = e.results[0][0].transcript
       setTranscript(text)
       const parsed = parseVoiceJob(text, clientsWithDogs)
-      setParsedJob(parsed)
       setListening(false)
+      // Open the JobForm pre-filled — same path as manual add which already works
+      setEditJob({
+        _voiceNew: true,
+        client_id: parsed.client_id || null,
+        client_name: parsed.client_name || '',
+        dog_id: parsed.dog_id || null,
+        dog_name: parsed.dog_name || '',
+        job_date: parsed.job_date || '',
+        job_time: parsed.job_time || '',
+        service_type: parsed.service_idx || 1,
+        notes: parsed.notes || '',
+      })
+      setVoiceMode(false)
+      setShowForm(true)
     }
     recognition.onerror = (e) => {
       setListening(false)
@@ -104,42 +116,12 @@ export default function Schedule({ clients, dogs }) {
     }
     setListening(true)
     setTranscript('')
-    setParsedJob(null)
+    setVoiceMode(true)
   }
 
   const stopListening = () => {
     if (recognitionRef.current) recognitionRef.current.stop()
     setListening(false)
-  }
-
-  const saveVoiceJob = async () => {
-    if (!parsedJob) return
-    if (!parsedJob.job_date) { showToast('Please fill in the date field above'); return }
-    const res = await fetch('/api/schedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: parsedJob.client_id || null,
-        client_name: parsedJob.client_name || 'Unknown',
-        dog_id: parsedJob.dog_id || null,
-        dog_name: parsedJob.dog_name || '',
-        job_date: parsedJob.job_date,
-        job_time: parsedJob.job_time || null,
-        service_type: parsedJob.service_idx || 1,
-        notes: parsedJob.notes || '',
-        invoiced: false,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      showToast(`Save failed: ${err.error || res.status}`)
-      return
-    }
-    await loadJobs()
-    setVoiceMode(false)
-    setTranscript('')
-    setParsedJob(null)
-    showToast('Job added! 🐾')
   }
 
   return (
@@ -152,7 +134,7 @@ export default function Schedule({ clients, dogs }) {
           <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>🎤 Voice Add Job</div>
           <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 16 }}>
             Say something like:<br />
-            <em>"Walk Mrs. Johnson's dog Buddy on Tuesday at 3pm"</em>
+            <em>"Walk Buddy on Tuesday at 3pm"</em>
           </div>
 
           <button
@@ -172,53 +154,14 @@ export default function Schedule({ clients, dogs }) {
           {transcript && (
             <div style={{ background: COLORS.lightBlue, borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: '0.85rem', color: COLORS.navy }}>
               <strong>Heard:</strong> &ldquo;{transcript}&rdquo;
+              <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 4 }}>Opening form...</div>
             </div>
           )}
 
-          {parsedJob && (
-            <div style={{ background: '#f7fbfe', borderRadius: 10, padding: '12px 14px', marginBottom: 14, textAlign: 'left' }}>
-              <div style={{ fontWeight: 800, color: COLORS.navy, marginBottom: 8, fontSize: '0.85rem' }}>Parsed as:</div>
-              <ParsedRow label="Client" value={parsedJob.client_name || '—'} />
-              <ParsedRow label="Dog" value={parsedJob.dog_name || '—'} />
-              <ParsedRow label="Service" value={SERVICES[parsedJob.service_idx]?.name || '—'} />
-              <ParsedRow label="Date" value={parsedJob.job_date || '—'} />
-              <ParsedRow label="Time" value={parsedJob.job_time ? formatTime(parsedJob.job_time) : '—'} />
-
-              {!parsedJob.client_name && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>Client Name</div>
-                  <input value={parsedJob.client_name || ''} onChange={e => setParsedJob(p => ({ ...p, client_name: e.target.value }))}
-                    style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
-                </div>
-              )}
-              {!parsedJob.job_date && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>Date *</div>
-                  <input type="date" value={parsedJob.job_date || ''} onChange={e => setParsedJob(p => ({ ...p, job_date: e.target.value }))}
-                    style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => { setVoiceMode(false); setTranscript(''); setParsedJob(null) }}
-              style={{ flex: 1, padding: '11px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700 }}>
-              Cancel
-            </button>
-            {parsedJob && (
-              <button onClick={saveVoiceJob} disabled={!parsedJob.job_date}
-                style={{ flex: 2, padding: '11px', background: !parsedJob.job_date ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
-                {!parsedJob.job_date ? 'Fill in date above' : 'Add Job'}
-              </button>
-            )}
-            {transcript && !parsedJob && (
-              <button onClick={startListening}
-                style={{ flex: 2, padding: '11px', background: COLORS.blue, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
-                Try Again
-              </button>
-            )}
-          </div>
+          <button onClick={() => { setVoiceMode(false); setTranscript('') }}
+            style={{ padding: '10px 24px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700 }}>
+            Cancel
+          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -342,15 +285,6 @@ export default function Schedule({ clients, dogs }) {
   )
 }
 
-function ParsedRow({ label, value }) {
-  return (
-    <div style={{ display: 'flex', gap: 8, marginBottom: 4, fontSize: '0.82rem' }}>
-      <span style={{ color: '#888', fontWeight: 600, minWidth: 60 }}>{label}:</span>
-      <span style={{ color: COLORS.navy, fontWeight: 700 }}>{value}</span>
-    </div>
-  )
-}
-
 function JobField({ label, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
@@ -401,7 +335,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
       job_date: date, job_time: time || null,
       service_type: svcType, notes: notes.trim(), invoiced: false,
     }
-    if (initial) {
+    if (initial?.id) {
       await fetch('/api/schedule', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
