@@ -278,7 +278,7 @@ export default function Schedule({ clients, dogs }) {
                     fontSize: '0.55rem', color: '#fff', fontWeight: 700,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
-                    {job.job_time ? formatTime(job.job_time).replace(' AM','a').replace(' PM','p') + ' ' : ''}{job.client_name}
+                    {job.job_time ? formatTime(job.job_time).replace(' AM','a').replace(' PM','p') + ' ' : ''}{job.dog_name || job.client_name}
                   </div>
                 ))}
                 {dayJobs.length > 2 && <div style={{ fontSize: '0.55rem', color: '#888', fontWeight: 600 }}>+{dayJobs.length - 2}</div>}
