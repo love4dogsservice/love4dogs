@@ -80,6 +80,8 @@ export default function Schedule({ clients, dogs }) {
     }
     recognition.onerror = (e) => {
       setListening(false)
+      // 'aborted' fires normally in Chrome after a successful result with continuous:false — ignore it
+      if (e.error === 'aborted') return
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
         showToast('Microphone permission denied — check browser settings')
       } else if (e.error === 'no-speech') {
