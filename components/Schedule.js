@@ -111,13 +111,15 @@ export default function Schedule({ clients, dogs }) {
   }
 
   const saveVoiceJob = async () => {
-    if (!parsedJob || !parsedJob.job_date) { showToast('Please include a date'); return }
-    await fetch('/api/schedule', {
+    if (!parsedJob) return
+    if (!parsedJob.job_date) { showToast('Please fill in the date field above'); return }
+    if (!parsedJob.client_name) { showToast('Please fill in the client name above'); return }
+    const res = await fetch('/api/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         client_id: parsedJob.client_id || null,
-        client_name: parsedJob.client_name || 'Unknown',
+        client_name: parsedJob.client_name,
         dog_id: parsedJob.dog_id || null,
         dog_name: parsedJob.dog_name || '',
         job_date: parsedJob.job_date,
@@ -127,6 +129,11 @@ export default function Schedule({ clients, dogs }) {
         invoiced: false,
       }),
     })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      showToast(`Save failed: ${err.error || res.status}`)
+      return
+    }
     await loadJobs()
     setVoiceMode(false)
     setTranscript('')
@@ -199,9 +206,9 @@ export default function Schedule({ clients, dogs }) {
               Cancel
             </button>
             {parsedJob && (
-              <button onClick={saveVoiceJob}
-                style={{ flex: 2, padding: '11px', background: COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
-                Add Job
+              <button onClick={saveVoiceJob} disabled={!parsedJob.job_date || !parsedJob.client_name}
+                style={{ flex: 2, padding: '11px', background: (!parsedJob.job_date || !parsedJob.client_name) ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
+                {!parsedJob.job_date ? 'Fill in date above' : !parsedJob.client_name ? 'Fill in client above' : 'Add Job'}
               </button>
             )}
             {transcript && !parsedJob && (
