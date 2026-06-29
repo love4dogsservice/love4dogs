@@ -115,13 +115,12 @@ export default function Schedule({ clients, dogs }) {
   const saveVoiceJob = async () => {
     if (!parsedJob) return
     if (!parsedJob.job_date) { showToast('Please fill in the date field above'); return }
-    if (!parsedJob.client_name) { showToast('Please fill in the client name above'); return }
     const res = await fetch('/api/schedule', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         client_id: parsedJob.client_id || null,
-        client_name: parsedJob.client_name,
+        client_name: parsedJob.client_name || 'Unknown',
         dog_id: parsedJob.dog_id || null,
         dog_name: parsedJob.dog_name || '',
         job_date: parsedJob.job_date,
@@ -208,9 +207,9 @@ export default function Schedule({ clients, dogs }) {
               Cancel
             </button>
             {parsedJob && (
-              <button onClick={saveVoiceJob} disabled={!parsedJob.job_date || !parsedJob.client_name}
-                style={{ flex: 2, padding: '11px', background: (!parsedJob.job_date || !parsedJob.client_name) ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
-                {!parsedJob.job_date ? 'Fill in date above' : !parsedJob.client_name ? 'Fill in client above' : 'Add Job'}
+              <button onClick={saveVoiceJob} disabled={!parsedJob.job_date}
+                style={{ flex: 2, padding: '11px', background: !parsedJob.job_date ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
+                {!parsedJob.job_date ? 'Fill in date above' : 'Add Job'}
               </button>
             )}
             {transcript && !parsedJob && (
