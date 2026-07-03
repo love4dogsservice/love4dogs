@@ -58,10 +58,27 @@ export default function Schedule({ clients, dogs }) {
     showToast('Job removed')
   }
 
-  // Voice recording
+  // Shared: parse text and open JobForm pre-filled
+  const parseAndOpen = (text) => {
+    const parsed = parseVoiceJob(text, clientsWithDogs)
+    setEditJob({
+      client_id: parsed.client_id || null,
+      client_name: parsed.client_name || '',
+      dog_id: parsed.dog_id || null,
+      dog_name: parsed.dog_name || '',
+      job_date: parsed.job_date || '',
+      job_time: parsed.job_time || '',
+      service_type: parsed.service_idx || 1,
+      notes: parsed.notes || '',
+    })
+    setVoiceMode(false)
+    setTranscript('')
+    setShowForm(true)
+  }
+
   const startListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      showToast('Voice not supported in this browser')
+      showToast('Mic not supported — type your job below instead')
       return
     }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -72,36 +89,18 @@ export default function Schedule({ clients, dogs }) {
 
     recognition.onresult = (e) => {
       const text = e.results[0][0].transcript
-      setTranscript(text)
-      const parsed = parseVoiceJob(text, clientsWithDogs)
       setListening(false)
-      // Open the JobForm pre-filled — same path as manual add which already works
-      setEditJob({
-        _voiceNew: true,
-        client_id: parsed.client_id || null,
-        client_name: parsed.client_name || '',
-        dog_id: parsed.dog_id || null,
-        dog_name: parsed.dog_name || '',
-        job_date: parsed.job_date || '',
-        job_time: parsed.job_time || '',
-        service_type: parsed.service_idx || 1,
-        notes: parsed.notes || '',
-      })
-      setVoiceMode(false)
-      setShowForm(true)
+      parseAndOpen(text)
     }
     recognition.onerror = (e) => {
       setListening(false)
-      // 'aborted' fires normally in Chrome after a successful result with continuous:false — ignore it
       if (e.error === 'aborted') return
       if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        showToast('Microphone permission denied — check browser settings')
+        showToast('Mic denied — type your job below instead')
       } else if (e.error === 'no-speech') {
-        showToast('No speech detected — try again')
-      } else if (e.error === 'audio-capture') {
-        showToast('No microphone found')
+        showToast('No speech detected — try again or type below')
       } else {
-        showToast(`Voice error: ${e.error || 'unknown'} — try again`)
+        showToast('Mic error — type your job below instead')
       }
     }
     recognition.onend = () => setListening(false)
@@ -109,14 +108,12 @@ export default function Schedule({ clients, dogs }) {
     recognitionRef.current = recognition
     try {
       recognition.start()
+      setListening(true)
+      setTranscript('')
     } catch (err) {
       setListening(false)
-      showToast('Could not start microphone — try again')
-      return
+      showToast('Could not start mic — type your job below instead')
     }
-    setListening(true)
-    setTranscript('')
-    setVoiceMode(true)
   }
 
   const stopListening = () => {
@@ -130,39 +127,12 @@ export default function Schedule({ clients, dogs }) {
 
       {/* Voice mode */}
       {voiceMode ? (
-        <div style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-          <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>🎤 Voice Add Job</div>
-          <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 16 }}>
-            Say something like:<br />
-            <em>"Walk Buddy on Tuesday at 3pm"</em>
-          </div>
-
-          <button
-            onClick={listening ? stopListening : startListening}
-            style={{
-              width: 80, height: 80, borderRadius: '50%', border: 'none',
-              background: listening ? COLORS.coral : COLORS.blue,
-              color: '#fff', fontSize: '2rem', cursor: 'pointer',
-              boxShadow: listening ? '0 0 0 8px rgba(224,90,58,0.2)' : '0 4px 16px rgba(91,188,228,0.4)',
-              transition: 'all 0.2s', marginBottom: 16,
-            }}>
-            {listening ? '⏹' : '🎤'}
-          </button>
-
-          {listening && <div style={{ color: COLORS.coral, fontWeight: 700, fontSize: '0.85rem', marginBottom: 12 }}>Listening...</div>}
-
-          {transcript && (
-            <div style={{ background: COLORS.lightBlue, borderRadius: 10, padding: '10px 14px', marginBottom: 12, fontSize: '0.85rem', color: COLORS.navy }}>
-              <strong>Heard:</strong> &ldquo;{transcript}&rdquo;
-              <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 4 }}>Opening form...</div>
-            </div>
-          )}
-
-          <button onClick={() => { setVoiceMode(false); setTranscript('') }}
-            style={{ padding: '10px 24px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700 }}>
-            Cancel
-          </button>
-        </div>
+        <VoicePanel
+          listening={listening}
+          onMic={listening ? stopListening : startListening}
+          onSubmitText={parseAndOpen}
+          onCancel={() => { setVoiceMode(false); setTranscript(''); setListening(false) }}
+        />
       ) : (
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           <button onClick={() => setVoiceMode(true)}
@@ -281,6 +251,53 @@ export default function Schedule({ clients, dogs }) {
           onCancel={() => { setShowForm(false); setEditJob(null) }}
         />
       )}
+    </div>
+  )
+}
+
+function VoicePanel({ listening, onMic, onSubmitText, onCancel }) {
+  const [typed, setTyped] = useState('')
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+      <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>🎤 Quick Add Job</div>
+      <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 16 }}>
+        Tap the mic and speak, or type below:<br />
+        <em style={{ fontSize: '0.78rem' }}>"Walk Buddy on Tuesday at 3pm"</em>
+      </div>
+
+      <button
+        onClick={onMic}
+        style={{
+          width: 72, height: 72, borderRadius: '50%', border: 'none',
+          background: listening ? COLORS.coral : COLORS.blue,
+          color: '#fff', fontSize: '1.8rem', cursor: 'pointer',
+          boxShadow: listening ? '0 0 0 8px rgba(224,90,58,0.2)' : '0 4px 16px rgba(91,188,228,0.4)',
+          transition: 'all 0.2s', marginBottom: 10,
+        }}>
+        {listening ? '⏹' : '🎤'}
+      </button>
+      {listening && <div style={{ color: COLORS.coral, fontWeight: 700, fontSize: '0.82rem', marginBottom: 10 }}>Listening…</div>}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 14, marginBottom: 12 }}>
+        <input
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && typed.trim()) onSubmitText(typed.trim()) }}
+          placeholder='e.g. "Walk Buddy tomorrow at 2pm"'
+          style={{ flex: 1, border: '1.5px solid #dde', borderRadius: 10, padding: '10px 12px', fontSize: '0.88rem', outline: 'none' }}
+        />
+        <button
+          onClick={() => { if (typed.trim()) onSubmitText(typed.trim()) }}
+          disabled={!typed.trim()}
+          style={{ padding: '10px 16px', background: typed.trim() ? COLORS.coral : '#ccc', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: '0.88rem' }}>
+          Go
+        </button>
+      </div>
+
+      <button onClick={onCancel}
+        style={{ padding: '9px 22px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem' }}>
+        Cancel
+      </button>
     </div>
   )
 }
