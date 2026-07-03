@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   COLORS, SERVICES, SERVICE_COLORS, getDaysInMonth, getFirstDayOfMonth,
   dateToKey, todayISO, MONTH_NAMES, DAY_NAMES, formatTime, parseVoiceJob
@@ -14,10 +14,7 @@ export default function Schedule({ clients, dogs }) {
   const [showForm, setShowForm] = useState(false)
   const [editJob, setEditJob] = useState(null)
   const [voiceMode, setVoiceMode] = useState(false)
-  const [listening, setListening] = useState(false)
-  const [transcript, setTranscript] = useState('')
   const [toast, setToast] = useState(null)
-  const recognitionRef = useRef(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -58,7 +55,6 @@ export default function Schedule({ clients, dogs }) {
     showToast('Job removed')
   }
 
-  // Shared: parse text and open JobForm pre-filled
   const parseAndOpen = (text) => {
     const parsed = parseVoiceJob(text, clientsWithDogs)
     setEditJob({
@@ -72,53 +68,7 @@ export default function Schedule({ clients, dogs }) {
       notes: parsed.notes || '',
     })
     setVoiceMode(false)
-    setTranscript('')
     setShowForm(true)
-  }
-
-  const startListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      showToast('Mic not supported — type your job below instead')
-      return
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    const recognition = new SpeechRecognition()
-    recognition.lang = 'en-US'
-    recognition.continuous = false
-    recognition.interimResults = false
-
-    recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript
-      setListening(false)
-      parseAndOpen(text)
-    }
-    recognition.onerror = (e) => {
-      setListening(false)
-      if (e.error === 'aborted') return
-      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        showToast('Mic denied — type your job below instead')
-      } else if (e.error === 'no-speech') {
-        showToast('No speech detected — try again or type below')
-      } else {
-        showToast('Mic error — type your job below instead')
-      }
-    }
-    recognition.onend = () => setListening(false)
-
-    recognitionRef.current = recognition
-    try {
-      recognition.start()
-      setListening(true)
-      setTranscript('')
-    } catch (err) {
-      setListening(false)
-      showToast('Could not start mic — type your job below instead')
-    }
-  }
-
-  const stopListening = () => {
-    if (recognitionRef.current) recognitionRef.current.stop()
-    setListening(false)
   }
 
   return (
@@ -128,16 +78,14 @@ export default function Schedule({ clients, dogs }) {
       {/* Voice mode */}
       {voiceMode ? (
         <VoicePanel
-          listening={listening}
-          onMic={listening ? stopListening : startListening}
           onSubmitText={parseAndOpen}
-          onCancel={() => { setVoiceMode(false); setTranscript(''); setListening(false) }}
+          onCancel={() => { setVoiceMode(false) }}
         />
       ) : (
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           <button onClick={() => setVoiceMode(true)}
             style={{ flex: 1, background: COLORS.blue, color: '#fff', border: 'none', padding: '11px', borderRadius: 14, fontWeight: 800, fontSize: '0.9rem' }}>
-            🎤 Voice Add
+            ⚡ Quick Add
           </button>
           <button onClick={() => { setEditJob(null); setShowForm(true) }}
             style={{ flex: 1, background: COLORS.coral, color: '#fff', border: 'none', padding: '11px', borderRadius: 14, fontWeight: 800, fontSize: '0.9rem' }}>
@@ -255,35 +203,22 @@ export default function Schedule({ clients, dogs }) {
   )
 }
 
-function VoicePanel({ listening, onMic, onSubmitText, onCancel }) {
+function VoicePanel({ onSubmitText, onCancel }) {
   const [typed, setTyped] = useState('')
   return (
-    <div style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-      <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>🎤 Quick Add Job</div>
-      <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 16 }}>
-        Tap the mic and speak, or type below:<br />
+    <div style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }}>
+      <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>Quick Add Job</div>
+      <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 14 }}>
+        Use your device mic or type what you'd say:<br />
         <em style={{ fontSize: '0.78rem' }}>"Walk Buddy on Tuesday at 3pm"</em>
       </div>
 
-      <button
-        onClick={onMic}
-        style={{
-          width: 72, height: 72, borderRadius: '50%', border: 'none',
-          background: listening ? COLORS.coral : COLORS.blue,
-          color: '#fff', fontSize: '1.8rem', cursor: 'pointer',
-          boxShadow: listening ? '0 0 0 8px rgba(224,90,58,0.2)' : '0 4px 16px rgba(91,188,228,0.4)',
-          transition: 'all 0.2s', marginBottom: 10,
-        }}>
-        {listening ? '⏹' : '🎤'}
-      </button>
-      {listening && <div style={{ color: COLORS.coral, fontWeight: 700, fontSize: '0.82rem', marginBottom: 10 }}>Listening…</div>}
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 14, marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
           value={typed}
           onChange={e => setTyped(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && typed.trim()) onSubmitText(typed.trim()) }}
-          placeholder='e.g. "Walk Buddy tomorrow at 2pm"'
+          placeholder='e.g. Walk Buddy tomorrow at 2pm'
           style={{ flex: 1, border: '1.5px solid #dde', borderRadius: 10, padding: '10px 12px', fontSize: '0.88rem', outline: 'none' }}
         />
         <button
