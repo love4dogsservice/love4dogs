@@ -16,6 +16,12 @@ function Field({ label, children }) {
 export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }) {
   const emptyItems = () => Array(8).fill(null).map(() => ({ service_idx: 0, date: '', qty: '' }))
 
+  const clientsWithDogs = (clients || []).map(c => ({
+    ...c,
+    dogs: (dogs || []).filter(d => d.client_id === c.id),
+  }))
+
+  const [clientId, setClientId] = useState(initial?.client_id || '')
   const [clientName, setClientName] = useState(initial?.client_name || '')
   const [dogNames, setDogNames] = useState(initial?.dog_names || '')
   const [periodStart, setPeriodStart] = useState(initial?.period_start || '')
@@ -30,6 +36,16 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
+  const handleClientSelect = (id) => {
+    if (!id) { setClientId(''); setClientName(''); setDogNames(''); return }
+    if (id === '__manual__') { setClientId(''); return }
+    const c = clientsWithDogs.find(c => c.id === id)
+    if (!c) return
+    setClientId(c.id)
+    setClientName(c.name)
+    setDogNames(c.dogs.map(d => d.name).join(', '))
+  }
+
   const updateItem = (i, field, val) => {
     setLineItems(prev => { const n = [...prev]; n[i] = { ...n[i], [field]: field === 'service_idx' ? parseInt(val) : val }; return n })
   }
@@ -42,7 +58,7 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
     try {
       console.log('[InvoiceForm] calling onSave')
       await onSave({
-        client_id: initial?.client_id || null,
+        client_id: clientId || initial?.client_id || null,
         client_name: clientName.trim(),
         dog_names: dogNames.trim(),
         period_start: periodStart || null,
@@ -73,7 +89,22 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
 
       <div style={{ padding: '14px 16px', maxWidth: 700, margin: '0 auto' }}>
         <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', marginBottom: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}>
-          <Field label="Client Name *"><input value={clientName} onChange={e => setClientName(e.target.value)} style={inputStyle} /></Field>
+          <Field label="Client Name *">
+            {clientsWithDogs.length > 0 && (
+              <select
+                value={clientId || (clientName ? '__manual__' : '')}
+                onChange={e => handleClientSelect(e.target.value)}
+                style={{ ...inputStyle, marginBottom: 6 }}
+              >
+                <option value="">-- Select Client --</option>
+                {clientsWithDogs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="__manual__">+ Enter manually</option>
+              </select>
+            )}
+            {(!clientId || clientId === '') && (
+              <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name" style={inputStyle} />
+            )}
+          </Field>
           <Field label="Dog(s)"><input value={dogNames} onChange={e => setDogNames(e.target.value)} placeholder="e.g. Buddy, Max" style={inputStyle} /></Field>
           <Field label="Service Period">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

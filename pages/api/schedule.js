@@ -20,11 +20,14 @@ async function handleSchedule(req, res) {
   const supabase = createClient(supabaseUrl, supabaseKey)
 
   if (req.method === 'GET') {
-    const { data, error } = await supabase
-      .from('schedule')
-      .select('*')
-      .order('job_date')
-      .order('job_time')
+    const { client_id, start, end } = req.query
+    let query = supabase.from('schedule').select('*')
+    if (client_id) query = query.eq('client_id', client_id)
+    if (start) query = query.gte('job_date', start)
+    if (end) query = query.lte('job_date', end)
+    if (client_id) query = query.eq('invoiced', false)
+    query = query.order('job_date').order('job_time')
+    const { data, error } = await query
     if (error) return res.status(500).json({ error: error.message })
     return res.status(200).json(data)
   }

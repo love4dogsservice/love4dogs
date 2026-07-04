@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { COLORS, SERVICES, calcLineTotal, getQtyLabel } from '../lib/helpers'
 import Toast from './Toast'
 
@@ -31,19 +30,14 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
       showToast('Please select both dates')
       return
     }
-    const { data } = await supabase
-      .from('schedule')
-      .select('*')
-      .eq('client_id', selectedClient.id)
-      .gte('job_date', periodStart)
-      .lte('job_date', periodEnd)
-      .eq('invoiced', false)
-      .order('job_date')
-      .order('job_time')
+    const res = await fetch(
+      `/api/schedule?client_id=${encodeURIComponent(selectedClient.id)}&start=${periodStart}&end=${periodEnd}`
+    )
+    const data = res.ok ? await res.json() : []
 
-    setJobs(data || [])
+    setJobs(data)
 
-    const items = (data || []).map(job => ({
+    const items = data.map(job => ({
       job_id: job.id,
       service_idx: job.service_type || 1,
       date: job.job_date,
@@ -256,8 +250,8 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setStep(2)} style={{ flex: 1, padding: '12px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700 }}>Back</button>
-              <button onClick={handleSave} disabled={saving || total === 0}
-                style={{ flex: 2, padding: '12px', background: saving || total === 0 ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
+              <button onClick={handleSave} disabled={saving}
+                style={{ flex: 2, padding: '12px', background: saving ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800 }}>
                 {saving ? 'Saving...' : `Save Invoice — $${total.toFixed(2)}`}
               </button>
             </div>
