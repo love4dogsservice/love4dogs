@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, buildShareText, formatDateShort } from '../lib/helpers'
+import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, buildShareText, buildInvoiceHTML, formatDateShort } from '../lib/helpers'
 import Toast from './Toast'
 
 export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDelete }) {
@@ -19,16 +19,36 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
     showToast(inv.paid ? 'Marked as unpaid' : '🎉 Marked as paid!')
   }
 
+  const openInvoiceWindow = () => {
+    const html = buildInvoiceHTML(inv)
+    const win = window.open('', '_blank')
+    if (win) {
+      win.document.write(html)
+      win.document.close()
+    }
+    return win
+  }
+
+  const handlePrint = () => {
+    const win = openInvoiceWindow()
+    if (win) {
+      win.onload = () => { win.focus(); win.print() }
+      // fallback if onload already fired
+      setTimeout(() => { try { win.focus(); win.print() } catch {} }, 800)
+    }
+  }
+
   const handleEmail = () => {
-    const text = buildShareText(inv)
+    openInvoiceWindow()
     const subject = encodeURIComponent(`Love 4 Dogs Invoice #${inv.invoice_number} — $${Number(inv.total).toFixed(2)}`)
-    const body = encodeURIComponent(text)
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
+    const body = encodeURIComponent(buildShareText(inv))
+    setTimeout(() => { window.location.href = `mailto:?subject=${subject}&body=${body}` }, 300)
   }
 
   const handleText = () => {
+    openInvoiceWindow()
     const text = encodeURIComponent(buildShareText(inv))
-    window.location.href = `sms:?body=${text}`
+    setTimeout(() => { window.location.href = `sms:?body=${text}` }, 300)
   }
 
   const handleCopy = async () => {
@@ -102,7 +122,7 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
             { icon: '✉️', label: 'Email', action: handleEmail },
             { icon: '💬', label: 'Text', action: handleText },
             { icon: '📋', label: 'Copy', action: handleCopy },
-            { icon: '🖨️', label: 'Print', action: () => window.print() },
+            { icon: '🖨️', label: 'Print', action: handlePrint },
           ].map(({ icon, label, action }) => (
             <button key={label} onClick={action} style={{
               background: '#fff', border: 'none', borderRadius: 12, padding: '12px 4px',
