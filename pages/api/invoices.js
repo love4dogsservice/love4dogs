@@ -37,6 +37,17 @@ async function handleInvoices(req, res) {
     const { id } = req.query
     if (!id) return res.status(400).json({ error: 'Missing id' })
     console.log('[invoices] DELETE id:', id)
+
+    // Fetch invoice first so we can reset its schedule jobs
+    const { data: existing } = await supabase.from('invoices').select('line_items').eq('id', id).single()
+    if (existing?.line_items) {
+      const items = typeof existing.line_items === 'string' ? JSON.parse(existing.line_items) : existing.line_items
+      const jobIds = items.map(i => i.job_id).filter(Boolean)
+      if (jobIds.length > 0) {
+        await supabase.from('schedule').update({ invoiced: false }).in('id', jobIds)
+      }
+    }
+
     const { error } = await supabase.from('invoices').delete().eq('id', id)
     if (error) { console.error('[invoices] delete error:', error); return res.status(400).json({ error: error.message }) }
     return res.status(200).json({ ok: true })
@@ -95,6 +106,20 @@ async function handleInvoices(req, res) {
 
   if (id) {
     console.log('[invoices] updating id:', id)
+
+    // Find job_ids that were removed so we can reset them to invoiced=false
+    const { data: existing } = await supabase.from('invoices').select('line_items').eq('id', id).single()
+    if (existing?.line_items) {
+      const oldItems = typeof existing.line_items === 'string' ? JSON.parse(existing.line_items) : existing.line_items
+      const oldJobIds = new Set(oldItems.map(i => i.job_id).filter(Boolean))
+      const newItems = payload.line_items || []
+      const newJobIds = new Set(newItems.map(i => i.job_id).filter(Boolean))
+      const removed = [...oldJobIds].filter(jid => !newJobIds.has(jid))
+      if (removed.length > 0) {
+        await supabase.from('schedule').update({ invoiced: false }).in('id', removed)
+      }
+    }
+
     const result = await supabase
       .from('invoices')
       .update({ ...payload, updated_at: new Date().toISOString() })
