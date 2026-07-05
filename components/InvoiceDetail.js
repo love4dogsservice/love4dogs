@@ -19,36 +19,34 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
     showToast(inv.paid ? 'Marked as unpaid' : '🎉 Marked as paid!')
   }
 
-  const openInvoiceWindow = () => {
+  const handleShare = async () => {
+    const text = buildShareText(inv)
+    const title = `Love 4 Dogs Invoice #${inv.invoice_number}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text })
+        return
+      } catch (e) {
+        if (e.name === 'AbortError') return // user dismissed sheet
+      }
+    }
+    // fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(text)
+      showToast('Copied to clipboard!')
+    } catch {
+      showToast('Copy failed')
+    }
+  }
+
+  const handlePrint = () => {
     const html = buildInvoiceHTML(inv)
     const win = window.open('', '_blank')
     if (win) {
       win.document.write(html)
       win.document.close()
+      setTimeout(() => { try { win.focus(); win.print() } catch {} }, 600)
     }
-    return win
-  }
-
-  const handlePrint = () => {
-    const win = openInvoiceWindow()
-    if (win) {
-      win.onload = () => { win.focus(); win.print() }
-      // fallback if onload already fired
-      setTimeout(() => { try { win.focus(); win.print() } catch {} }, 800)
-    }
-  }
-
-  const handleEmail = () => {
-    openInvoiceWindow()
-    const subject = encodeURIComponent(`Love 4 Dogs Invoice #${inv.invoice_number} — $${Number(inv.total).toFixed(2)}`)
-    const body = encodeURIComponent(buildShareText(inv))
-    setTimeout(() => { window.location.href = `mailto:?subject=${subject}&body=${body}` }, 300)
-  }
-
-  const handleText = () => {
-    openInvoiceWindow()
-    const text = encodeURIComponent(buildShareText(inv))
-    setTimeout(() => { window.location.href = `sms:?body=${text}` }, 300)
   }
 
   const handleCopy = async () => {
@@ -117,10 +115,9 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
         </div>
 
         {/* Action buttons */}
-        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
           {[
-            { icon: '✉️', label: 'Email', action: handleEmail },
-            { icon: '💬', label: 'Text', action: handleText },
+            { icon: '📤', label: 'Share', action: handleShare },
             { icon: '📋', label: 'Copy', action: handleCopy },
             { icon: '🖨️', label: 'Print', action: handlePrint },
           ].map(({ icon, label, action }) => (
