@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, buildShareText, buildInvoiceHTML, formatDateShort } from '../lib/helpers'
+import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, buildShareText, formatDateShort } from '../lib/helpers'
 import Toast from './Toast'
 
 export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDelete }) {
@@ -19,34 +19,23 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
     showToast(inv.paid ? 'Marked as unpaid' : '🎉 Marked as paid!')
   }
 
-  const handleShare = async () => {
+  const invoiceUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/invoice/${inv.id}`
+    : `/invoice/${inv.id}`
+
+  const handleEmail = () => {
+    window.open(`/invoice/${inv.id}`, '_blank')
+  }
+
+  const handleText = () => {
     const text = buildShareText(inv)
-    const title = `Love 4 Dogs Invoice #${inv.invoice_number}`
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, text })
-        return
-      } catch (e) {
-        if (e.name === 'AbortError') return // user dismissed sheet
-      }
-    }
-    // fallback: copy to clipboard
-    try {
-      await navigator.clipboard.writeText(text)
-      showToast('Copied to clipboard!')
-    } catch {
-      showToast('Copy failed')
-    }
+    const encoded = encodeURIComponent(text)
+    window.location.href = `sms:?body=${encoded}`
   }
 
   const handlePrint = () => {
-    const html = buildInvoiceHTML(inv)
-    const win = window.open('', '_blank')
-    if (win) {
-      win.document.write(html)
-      win.document.close()
-      setTimeout(() => { try { win.focus(); win.print() } catch {} }, 600)
-    }
+    const win = window.open(`/invoice/${inv.id}`, '_blank')
+    if (win) setTimeout(() => { try { win.focus(); win.print() } catch {} }, 1200)
   }
 
   const handleCopy = async () => {
@@ -115,9 +104,10 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
         </div>
 
         {/* Action buttons */}
-        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
           {[
-            { icon: '📤', label: 'Share', action: handleShare },
+            { icon: '✉️', label: 'Email', action: handleEmail },
+            { icon: '💬', label: 'Text', action: handleText },
             { icon: '📋', label: 'Copy', action: handleCopy },
             { icon: '🖨️', label: 'Print', action: handlePrint },
           ].map(({ icon, label, action }) => (
