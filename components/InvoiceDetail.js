@@ -188,7 +188,7 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
           </div>
 
           <div style={{ background: COLORS.blue, color: '#fff', textAlign: 'center', padding: '11px', fontSize: '0.85rem', fontWeight: 800 }}>
-            Thank you for choosing Love 4 Dogs! 🐶 🐾🐾🐾
+            Thank you! 🐾🐾🐾
           </div>
         </div>
 

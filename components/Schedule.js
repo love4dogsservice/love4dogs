@@ -269,6 +269,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [date, setDate] = useState(initial?.job_date || defaultDate || '')
   const [time, setTime] = useState(initial?.job_time || '')
   const [svcType, setSvcType] = useState(initial?.service_type || 1)
+  const [duration, setDuration] = useState(initial?.duration ?? (initial?.service_type === 2 || initial?.service_type === 3 ? 1 : 15))
   const [notes, setNotes] = useState(initial?.notes || '')
   const [saving, setSaving] = useState(false)
 
@@ -313,7 +314,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
       client_id: clientId || null, client_name: clientName.trim(),
       dog_id: dogId || null, dog_name: dogName.trim(),
       job_time: time || null,
-      service_type: svcType, notes: notes.trim(), invoiced: false,
+      service_type: svcType, duration: duration || null, notes: notes.trim(), invoiced: false,
     }
 
     if (initial?.id) {
@@ -409,9 +410,17 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
         </div>
 
         <JobField label="Service">
-          <select value={svcType} onChange={e => setSvcType(parseInt(e.target.value))} style={inputStyle}>
+          <select value={svcType} onChange={e => {
+            const v = parseInt(e.target.value)
+            setSvcType(v)
+            setDuration(v === 2 || v === 3 ? 1 : 15)
+          }} style={inputStyle}>
             {SERVICES.slice(1).map((s, i) => <option key={i} value={i+1}>{s.name}</option>)}
           </select>
+        </JobField>
+
+        <JobField label={svcType === 1 || svcType === 4 ? 'Duration (min)' : 'Visits'}>
+          <input type="number" value={duration} min="1" onChange={e => setDuration(parseInt(e.target.value) || 1)} style={inputStyle} />
         </JobField>
 
         <JobField label="Notes">

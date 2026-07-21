@@ -117,7 +117,7 @@ export default function InvoicePage() {
         </div>
 
         <div style={{ background: COLORS.blue, color: '#fff', textAlign: 'center', padding: '12px', fontSize: '0.85rem', fontWeight: 800 }}>
-          Thank you for choosing Love 4 Dogs! 🐶 🐾🐾🐾
+          Thank you! 🐾🐾🐾
         </div>
       </div>
     </>

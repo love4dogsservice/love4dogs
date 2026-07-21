@@ -41,10 +41,10 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
       job_id: job.id,
       service_idx: job.service_type || 1,
       date: job.job_date,
-      qty: job.service_type === 2 || job.service_type === 3 ? '1' : '30',
+      qty: job.duration ? String(job.duration) : (job.service_type === 2 || job.service_type === 3 ? '1' : '15'),
       dog_name: job.dog_name || '',
     }))
-    setLineItems(items.length > 0 ? items : [{ service_idx: 1, date: '', qty: '30', dog_name: '' }])
+    setLineItems(items.length > 0 ? items : [{ service_idx: 1, date: '', qty: '15', dog_name: '' }])
     setStep(3)
   }
 
@@ -52,7 +52,7 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
     setLineItems(prev => { const n = [...prev]; n[i] = { ...n[i], [field]: val }; return n })
   }
 
-  const addLineItem = () => setLineItems(prev => [...prev, { service_idx: 1, date: '', qty: '30', dog_name: '' }])
+  const addLineItem = () => setLineItems(prev => [...prev, { service_idx: 1, date: '', qty: '15', dog_name: '' }])
   const removeLineItem = (i) => setLineItems(prev => prev.filter((_, idx) => idx !== i))
 
   const total = lineItems.reduce((sum, item) => sum + calcLineTotal(item.service_idx, parseFloat(item.qty)), 0)
