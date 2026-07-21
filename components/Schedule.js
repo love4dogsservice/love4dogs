@@ -163,27 +163,56 @@ export default function Schedule({ clients, dogs }) {
             <div style={{ textAlign: 'center', padding: '16px', color: '#aaa', fontSize: '0.85rem' }}>No jobs — tap + Add Job</div>
           ) : selectedJobs.map(job => (
             <div key={job.id} style={{
-              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
               padding: '10px 12px', marginBottom: 8, borderRadius: 10,
               borderLeft: `4px solid ${SERVICE_COLORS[job.service_type] || COLORS.blue}`,
               background: job.invoiced ? '#f5f5f5' : '#f8fbfe',
             }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: '0.9rem' }}>
-                  {job.client_name}
-                  {job.invoiced && <span style={{ marginLeft: 6, fontSize: '0.65rem', background: COLORS.lightGreen, color: COLORS.green, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>Invoiced</span>}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: '0.9rem' }}>
+                    {job.client_name}
+                    {job.invoiced && <span style={{ marginLeft: 6, fontSize: '0.65rem', background: COLORS.lightGreen, color: COLORS.green, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>Invoiced</span>}
+                  </div>
+                  {job.dog_name && <div style={{ color: '#666', fontSize: '0.78rem' }}>🐾 {job.dog_name}</div>}
+                  <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 2 }}>
+                    {SERVICES[job.service_type]?.name}{job.job_time && ` · ${formatTime(job.job_time)}`}
+                  </div>
+                  {job.notes && <div style={{ color: '#999', fontSize: '0.72rem', marginTop: 2 }}>{job.notes}</div>}
                 </div>
-                {job.dog_name && <div style={{ color: '#666', fontSize: '0.78rem' }}>🐾 {job.dog_name}</div>}
-                <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 2 }}>
-                  {SERVICES[job.service_type]?.name}{job.job_time && ` · ${formatTime(job.job_time)}`}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => { setEditJob(job); setShowForm(true) }}
+                    style={{ background: COLORS.lightBlue, border: 'none', borderRadius: 8, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, color: COLORS.darkBlue }}>Edit</button>
+                  <button onClick={() => handleDeleteJob(job.id)}
+                    style={{ background: COLORS.lightRed, border: 'none', borderRadius: 8, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, color: COLORS.coral }}>✕</button>
                 </div>
-                {job.notes && <div style={{ color: '#999', fontSize: '0.72rem', marginTop: 2 }}>{job.notes}</div>}
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => { setEditJob(job); setShowForm(true) }}
-                  style={{ background: COLORS.lightBlue, border: 'none', borderRadius: 8, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, color: COLORS.darkBlue }}>Edit</button>
-                <button onClick={() => handleDeleteJob(job.id)}
-                  style={{ background: COLORS.lightRed, border: 'none', borderRadius: 8, padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, color: COLORS.coral }}>✕</button>
+              {/* Action row */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                <a
+                  href={`/api/ics?date=${job.job_date}&time=${job.job_time || ''}&service=${encodeURIComponent(SERVICES[job.service_type]?.name || '')}&client=${encodeURIComponent(job.client_name || '')}&dog=${encodeURIComponent(job.dog_name || '')}&duration=${job.duration || 60}`}
+                  download
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: '#f0f4ff', border: 'none', borderRadius: 8,
+                    padding: '5px 10px', fontSize: '0.72rem', fontWeight: 700,
+                    color: '#3a5bbf', textDecoration: 'none', cursor: 'pointer',
+                  }}>
+                  📅 Add to Calendar
+                </a>
+                <button onClick={() => {
+                  const svc = SERVICES[job.service_type]?.name || 'Job'
+                  const timeStr = job.job_time ? formatTime(job.job_time) : ''
+                  const dogPart = job.dog_name ? ` (${job.dog_name})` : ''
+                  const body = `Hi Mom! Reminder: ${svc} for ${job.client_name}${dogPart}${timeStr ? ` today at ${timeStr}` : ' today'}. - Millie Ruth & Ayres 🐾`
+                  window.location.href = `sms:6019463924?body=${encodeURIComponent(body)}`
+                }} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  background: '#f0fff4', border: 'none', borderRadius: 8,
+                  padding: '5px 10px', fontSize: '0.72rem', fontWeight: 700,
+                  color: '#2d8a5a', cursor: 'pointer',
+                }}>
+                  💬 Text Mom
+                </button>
               </div>
             </div>
           ))}
