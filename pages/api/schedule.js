@@ -33,12 +33,13 @@ async function handleSchedule(req, res) {
   }
 
   if (req.method === 'POST') {
+    const rows = Array.isArray(req.body) ? req.body : [req.body]
     const { data, error } = await supabase
       .from('schedule')
-      .insert([req.body])
+      .insert(rows)
       .select()
     if (error) return res.status(500).json({ error: error.message })
-    return res.status(201).json(data[0])
+    return res.status(201).json(Array.isArray(req.body) ? data : data[0])
   }
 
   if (req.method === 'PUT') {

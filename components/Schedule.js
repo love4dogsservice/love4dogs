@@ -246,6 +246,21 @@ function JobField({ label, children }) {
   )
 }
 
+const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function buildOccurrences(startDate, endDate, selectedDays) {
+  const dates = []
+  const end = new Date(endDate + 'T00:00:00')
+  const cur = new Date(startDate + 'T00:00:00')
+  while (cur <= end) {
+    if (selectedDays.includes(cur.getDay())) {
+      dates.push(cur.toISOString().split('T')[0])
+    }
+    cur.setDate(cur.getDate() + 1)
+  }
+  return dates
+}
+
 function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [clientId, setClientId] = useState(initial?.client_id || '')
   const [dogId, setDogId] = useState(initial?.dog_id || '')
@@ -256,6 +271,11 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [svcType, setSvcType] = useState(initial?.service_type || 1)
   const [notes, setNotes] = useState(initial?.notes || '')
   const [saving, setSaving] = useState(false)
+
+  // Recurring state
+  const [recurring, setRecurring] = useState(false)
+  const [recurDays, setRecurDays] = useState([])
+  const [recurEnd, setRecurEnd] = useState('')
 
   const selectedClient = clients.find(c => c.id === clientId)
   const clientDogs = selectedClient?.dogs || []
@@ -278,30 +298,46 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
     setDogName(d ? d.name : '')
   }
 
+  const toggleRecurDay = (dow) => {
+    setRecurDays(prev => prev.includes(dow) ? prev.filter(d => d !== dow) : [...prev, dow])
+  }
+
+  const occurrences = recurring && date && recurEnd && recurDays.length > 0
+    ? buildOccurrences(date, recurEnd, recurDays)
+    : []
+
   const handleSave = async () => {
     if (!clientName.trim() || !date) return
     setSaving(true)
-    const payload = {
+    const base = {
       client_id: clientId || null, client_name: clientName.trim(),
       dog_id: dogId || null, dog_name: dogName.trim(),
-      job_date: date, job_time: time || null,
+      job_time: time || null,
       service_type: svcType, notes: notes.trim(), invoiced: false,
     }
+
     if (initial?.id) {
       await fetch('/api/schedule', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: initial.id, ...payload }),
+        body: JSON.stringify({ id: initial.id, ...base, job_date: date }),
+      })
+    } else if (recurring && occurrences.length > 0) {
+      const rows = occurrences.map(d => ({ ...base, job_date: d }))
+      await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rows),
       })
     } else {
       await fetch('/api/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...base, job_date: date }),
       })
     }
 
-    if (time && 'Notification' in window && Notification.permission === 'granted') {
+    if (!recurring && time && 'Notification' in window && Notification.permission === 'granted') {
       const dt = new Date(`${date}T${time}`)
       const notify = new Date(dt.getTime() - 30 * 60 * 1000)
       const delay = notify.getTime() - Date.now()
@@ -319,13 +355,17 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
     await onSave()
   }
 
+  const canSave = clientName.trim() && (
+    recurring ? (recurDays.length > 0 && recurEnd && occurrences.length > 0) : !!date
+  )
+
   const inputStyle = { width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 200 }}>
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 36px', width: '100%', maxWidth: 700, margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
+      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 36px', width: '100%', maxWidth: 700, margin: '0 auto', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem' }}>{initial ? 'Edit Job' : 'Add Job'}</div>
+          <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem' }}>{initial?.id ? 'Edit Job' : 'Add Job'}</div>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: '#aaa' }}>✕</button>
         </div>
 
@@ -360,7 +400,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <JobField label="Date *">
+          <JobField label={recurring ? 'Start Date *' : 'Date *'}>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           </JobField>
           <JobField label="Time">
@@ -378,9 +418,80 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
           <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any special instructions..." style={inputStyle} />
         </JobField>
 
-        <button onClick={handleSave} disabled={saving || !clientName.trim() || !date}
-          style={{ width: '100%', marginTop: 16, background: saving || !clientName.trim() || !date ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', padding: '14px', borderRadius: 14, fontSize: '1rem', fontWeight: 800 }}>
-          {saving ? 'Saving...' : initial ? 'Update Job' : 'Add Job'}
+        {/* Recurring toggle — only show for new jobs */}
+        {!initial?.id && (
+          <div style={{ marginTop: 4, marginBottom: 12 }}>
+            <button
+              onClick={() => setRecurring(r => !r)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: recurring ? COLORS.lightBlue : '#f5f5f5',
+                border: `2px solid ${recurring ? COLORS.blue : '#ddd'}`,
+                borderRadius: 12, padding: '10px 14px', width: '100%', cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 38, height: 22, borderRadius: 11,
+                background: recurring ? COLORS.blue : '#ccc',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}>
+                <div style={{
+                  position: 'absolute', top: 3, left: recurring ? 19 : 3,
+                  width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.2s',
+                }} />
+              </div>
+              <span style={{ fontWeight: 800, color: COLORS.navy, fontSize: '0.9rem' }}>Repeat (Recurring)</span>
+            </button>
+
+            {recurring && (
+              <div style={{ background: COLORS.lightBlue, borderRadius: 12, padding: '14px', marginTop: 10 }}>
+                <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 8 }}>Repeat on Days</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+                  {WEEK_DAYS.map((d, i) => (
+                    <button
+                      key={d}
+                      onClick={() => toggleRecurDay(i)}
+                      style={{
+                        padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        fontWeight: 800, fontSize: '0.8rem',
+                        background: recurDays.includes(i) ? COLORS.blue : '#fff',
+                        color: recurDays.includes(i) ? '#fff' : COLORS.navy,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                      }}
+                    >{d}</button>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>End Date</div>
+                <input
+                  type="date"
+                  value={recurEnd}
+                  min={date || undefined}
+                  onChange={e => setRecurEnd(e.target.value)}
+                  style={{ ...inputStyle, background: '#fff', padding: '6px 8px', borderRadius: 8, borderBottom: 'none', border: '1.5px solid #c8e0f0' }}
+                />
+
+                {occurrences.length > 0 && (
+                  <div style={{ marginTop: 12, background: '#fff', borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem', color: COLORS.darkBlue, fontWeight: 700 }}>
+                    📅 This will create <span style={{ color: COLORS.coral, fontWeight: 900 }}>{occurrences.length} jobs</span>
+                    {recurDays.length > 0 && ` · ${recurDays.map(d => WEEK_DAYS[d]).join(', ')}`}
+                    {recurEnd && ` through ${recurEnd}`}
+                  </div>
+                )}
+                {recurring && recurDays.length > 0 && recurEnd && occurrences.length === 0 && (
+                  <div style={{ marginTop: 12, background: '#fff', borderRadius: 8, padding: '8px 12px', fontSize: '0.82rem', color: COLORS.coral, fontWeight: 700 }}>
+                    No occurrences — check start and end dates
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <button onClick={handleSave} disabled={saving || !canSave}
+          style={{ width: '100%', marginTop: 8, background: saving || !canSave ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', padding: '14px', borderRadius: 14, fontSize: '1rem', fontWeight: 800 }}>
+          {saving ? 'Saving...' : initial?.id ? 'Update Job' : recurring && occurrences.length > 0 ? `Add ${occurrences.length} Jobs` : 'Add Job'}
         </button>
       </div>
     </div>
