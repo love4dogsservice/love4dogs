@@ -13,7 +13,7 @@ export default function Schedule({ clients, dogs }) {
   const [selectedDay, setSelectedDay] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editJob, setEditJob] = useState(null)
-  const [voiceMode, setVoiceMode] = useState(false)
+  const [panel, setPanel] = useState(null) // null | 'voice' | 'paste' | 'template'
   const [toast, setToast] = useState(null)
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
@@ -67,7 +67,7 @@ export default function Schedule({ clients, dogs }) {
       service_type: parsed.service_idx || 1,
       notes: parsed.notes || '',
     })
-    setVoiceMode(false)
+    setPanel(null)
     setShowForm(true)
   }
 
@@ -75,22 +75,46 @@ export default function Schedule({ clients, dogs }) {
     <div style={{ padding: '14px 16px', maxWidth: 700, margin: '0 auto' }}>
       {toast && <Toast msg={toast} />}
 
-      {/* Voice mode */}
-      {voiceMode ? (
+      {/* Quick action panels */}
+      {panel === 'voice' ? (
         <VoicePanel
           onSubmitText={parseAndOpen}
-          onCancel={() => { setVoiceMode(false) }}
+          onCancel={() => setPanel(null)}
+        />
+      ) : panel === 'paste' ? (
+        <PasteTextPanel
+          clients={clientsWithDogs}
+          onSaved={async () => { await loadJobs(); setPanel(null); showToast('Jobs added!') }}
+          onCancel={() => setPanel(null)}
+        />
+      ) : panel === 'template' ? (
+        <ApplyTemplatePanel
+          clients={clientsWithDogs}
+          onSaved={async () => { await loadJobs(); setPanel(null); showToast('Jobs added!') }}
+          onCancel={() => setPanel(null)}
         />
       ) : (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          <button onClick={() => setVoiceMode(true)}
-            style={{ flex: 1, background: COLORS.blue, color: '#fff', border: 'none', padding: '11px', borderRadius: 14, fontWeight: 800, fontSize: '0.9rem' }}>
-            ⚡ Quick Add
-          </button>
-          <button onClick={() => { setEditJob(null); setShowForm(true) }}
-            style={{ flex: 1, background: COLORS.coral, color: '#fff', border: 'none', padding: '11px', borderRadius: 14, fontWeight: 800, fontSize: '0.9rem' }}>
-            + Manual Add
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setPanel('voice')}
+              style={{ flex: 1, background: COLORS.blue, color: '#fff', border: 'none', padding: '11px', borderRadius: 14, fontWeight: 800, fontSize: '0.9rem' }}>
+              ⚡ Quick Add
+            </button>
+            <button onClick={() => { setEditJob(null); setShowForm(true) }}
+              style={{ flex: 1, background: COLORS.coral, color: '#fff', border: 'none', padding: '11px', borderRadius: 14, fontWeight: 800, fontSize: '0.9rem' }}>
+              + Manual Add
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setPanel('paste')}
+              style={{ flex: 1, background: '#fff', color: COLORS.darkBlue, border: `2px solid ${COLORS.blue}`, padding: '9px', borderRadius: 14, fontWeight: 800, fontSize: '0.82rem' }}>
+              📋 Paste Client Text
+            </button>
+            <button onClick={() => setPanel('template')}
+              style={{ flex: 1, background: '#fff', color: COLORS.darkBlue, border: `2px solid ${COLORS.blue}`, padding: '9px', borderRadius: 14, fontWeight: 800, fontSize: '0.82rem' }}>
+              🗓️ Apply Template
+            </button>
+          </div>
         </div>
       )}
 
@@ -203,7 +227,7 @@ export default function Schedule({ clients, dogs }) {
                   const svc = SERVICES[job.service_type]?.name || 'Job'
                   const timeStr = job.job_time ? formatTime(job.job_time) : ''
                   const dogPart = job.dog_name ? ` (${job.dog_name})` : ''
-                  const body = `Hi Mom! Reminder: ${svc} for ${job.client_name}${dogPart}${timeStr ? ` today at ${timeStr}` : ' today'}. - Millie Ruth & Ayres 🐾`
+                  const body = `Hi Mom! Reminder: ${svc} for ${job.client_name}${dogPart}${timeStr ? ` today at ${timeStr}` : ' today'}. - Millie Ruth and Ayres 🐾`
                   window.location.href = `sms:6019463924?body=${encodeURIComponent(body)}`
                 }} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -290,9 +314,21 @@ function buildOccurrences(startDate, endDate, selectedDays) {
   return dates
 }
 
+function initialDogIds(initial, clients) {
+  if (!initial) return []
+  const c = clients.find(c => c.id === initial.client_id)
+  const dogs = c?.dogs || []
+  if (initial.dog_name) {
+    const names = initial.dog_name.split(',').map(n => n.trim().toLowerCase()).filter(Boolean)
+    const matched = dogs.filter(d => names.includes(d.name.toLowerCase())).map(d => d.id)
+    if (matched.length > 0) return matched
+  }
+  return initial.dog_id ? [initial.dog_id] : []
+}
+
 function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [clientId, setClientId] = useState(initial?.client_id || '')
-  const [dogId, setDogId] = useState(initial?.dog_id || '')
+  const [dogIds, setDogIds] = useState(() => initialDogIds(initial, clients))
   const [clientName, setClientName] = useState(initial?.client_name || '')
   const [dogName, setDogName] = useState(initial?.dog_name || '')
   const [date, setDate] = useState(initial?.job_date || defaultDate || '')
@@ -312,20 +348,15 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
 
   const handleClientChange = (id) => {
     setClientId(id)
-    setDogId('')
     setDogName('')
     const c = clients.find(c => c.id === id)
     setClientName(c ? c.name : '')
-    if (c?.dogs?.length === 1) {
-      setDogId(c.dogs[0].id)
-      setDogName(c.dogs[0].name)
-    }
+    // Default to ALL of this client's dogs checked — most visits include everyone
+    setDogIds(c?.dogs?.map(d => d.id) || [])
   }
 
-  const handleDogChange = (id) => {
-    setDogId(id)
-    const d = clientDogs.find(d => d.id === id)
-    setDogName(d ? d.name : '')
+  const toggleDog = (id) => {
+    setDogIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id])
   }
 
   const toggleRecurDay = (dow) => {
@@ -339,9 +370,18 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const handleSave = async () => {
     if (!clientName.trim() || !date) return
     setSaving(true)
+
+    // One service fee covers all selected dogs — store their names comma-separated
+    // on a single row, rather than one row (and one fee) per dog.
+    const selectedDogs = clientDogs.length > 0
+      ? clientDogs.filter(d => dogIds.includes(d.id))
+      : (dogName.trim() ? [{ id: null, name: dogName.trim() }] : [])
+    const combinedDogName = selectedDogs.map(d => d.name).join(', ')
+    const singleDogId = selectedDogs.length === 1 ? selectedDogs[0].id : null
+
     const base = {
-      client_id: clientId || null, client_name: clientName.trim(),
-      dog_id: dogId || null, dog_name: dogName.trim(),
+      client_id: clientId && clientId !== '__manual__' ? clientId : null, client_name: clientName.trim(),
+      dog_id: singleDogId, dog_name: combinedDogName,
       job_time: time || null,
       service_type: svcType, duration: duration || null, notes: notes.trim(), invoiced: false,
     }
@@ -352,18 +392,13 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: initial.id, ...base, job_date: date }),
       })
-    } else if (recurring && occurrences.length > 0) {
-      const rows = occurrences.map(d => ({ ...base, job_date: d }))
+    } else {
+      const dates = recurring && occurrences.length > 0 ? occurrences : [date]
+      const rows = dates.map(d => ({ ...base, job_date: d }))
       await fetch('/api/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rows),
-      })
-    } else {
-      await fetch('/api/schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...base, job_date: date }),
       })
     }
 
@@ -415,11 +450,23 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
         </JobField>
 
         {clientDogs.length > 0 && (
-          <JobField label="Dog">
-            <select value={dogId} onChange={e => handleDogChange(e.target.value)} style={inputStyle}>
-              <option value="">-- Select Dog --</option>
-              {clientDogs.map(d => <option key={d.id} value={d.id}>{d.name}{d.breed ? ` (${d.breed})` : ''}</option>)}
-            </select>
+          <JobField label={clientDogs.length > 1 ? 'Dogs (all included — uncheck any not on this visit)' : 'Dog'}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {clientDogs.map(d => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => toggleDog(d.id)}
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontWeight: 800, fontSize: '0.82rem',
+                    background: dogIds.includes(d.id) ? COLORS.blue : '#fff',
+                    color: dogIds.includes(d.id) ? '#fff' : COLORS.navy,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                  }}
+                >🐾 {d.name}{d.breed ? ` (${d.breed})` : ''}</button>
+              ))}
+            </div>
           </JobField>
         )}
 
@@ -532,6 +579,294 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
           {saving ? 'Saving...' : initial?.id ? 'Update Job' : recurring && occurrences.length > 0 ? `Add ${occurrences.length} Jobs` : 'Add Job'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function PasteTextPanel({ clients, onSaved, onCancel }) {
+  const [text, setText] = useState('')
+  const [parsing, setParsing] = useState(false)
+  const [error, setError] = useState(null)
+  const [rows, setRows] = useState(null) // null = not parsed yet; array once parsed
+  const [saving, setSaving] = useState(false)
+
+  const rowInputStyle = { width: '100%', border: 'none', borderBottom: '1px solid #aac', fontSize: '0.85rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }
+  const rowLabelStyle = { fontSize: '0.62rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }
+
+  const findServiceIdx = (name) => {
+    const idx = SERVICES.findIndex((s, i) => i > 0 && s.name.toLowerCase() === String(name || '').toLowerCase())
+    return idx > 0 ? idx : 1
+  }
+
+  const handleParse = async () => {
+    if (!text.trim()) return
+    setParsing(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/parse-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.trim() }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Failed to parse text')
+      const jobs = (json.jobs || []).map(j => ({
+        client_name: j.client_name || '',
+        dog_name: j.dog_name || '',
+        job_date: j.job_date || '',
+        job_time: j.job_time || '',
+        service_idx: findServiceIdx(j.service_type),
+      }))
+      setRows(jobs)
+    } catch (err) {
+      setError(err.message || 'Error parsing text')
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  const updateRow = (i, field, val) => {
+    setRows(prev => { const n = [...prev]; n[i] = { ...n[i], [field]: val }; return n })
+  }
+  const removeRow = (i) => setRows(prev => prev.filter((_, idx) => idx !== i))
+
+  const handleSave = async () => {
+    if (!rows || rows.length === 0) return
+    setSaving(true)
+    const clientsByName = new Map(clients.map(c => [c.name.toLowerCase().trim(), c]))
+
+    const payload = rows
+      .filter(r => r.client_name.trim() && r.job_date)
+      .map(r => {
+        const matchedClient = clientsByName.get(r.client_name.toLowerCase().trim())
+        let dogName = r.dog_name.trim()
+        let dogId = null
+        if (matchedClient) {
+          if (dogName) {
+            const matchedDog = (matchedClient.dogs || []).find(d => d.name.toLowerCase() === dogName.toLowerCase())
+            if (matchedDog) dogId = matchedDog.id
+          } else if ((matchedClient.dogs || []).length > 0) {
+            dogName = matchedClient.dogs.map(d => d.name).join(', ')
+          }
+        }
+        return {
+          client_id: matchedClient ? matchedClient.id : null,
+          client_name: matchedClient ? matchedClient.name : r.client_name.trim(),
+          dog_id: dogId,
+          dog_name: dogName,
+          job_date: r.job_date,
+          job_time: r.job_time || null,
+          service_type: r.service_idx,
+          duration: r.service_idx === 2 || r.service_idx === 3 ? 1 : 15,
+          notes: '',
+          invoiced: false,
+        }
+      })
+
+    await fetch('/api/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    setSaving(false)
+    await onSaved()
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }}>
+      <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>Paste Client Text</div>
+
+      {rows === null ? (
+        <>
+          <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 14 }}>
+            Paste a text message from a client, e.g. <em>"Can you walk Buddy Monday and Wednesday at 4pm this week?"</em>
+          </div>
+          {error && (
+            <div style={{ background: '#fff0ee', border: `1px solid ${COLORS.coral}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: COLORS.coral, fontSize: '0.82rem', fontWeight: 700 }}>
+              ⚠ {error}
+            </div>
+          )}
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="Paste the client's message here..."
+            rows={4}
+            style={{ width: '100%', border: '1.5px solid #dde', borderRadius: 10, padding: '10px 12px', fontSize: '0.88rem', outline: 'none', marginBottom: 12, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onCancel} style={{ padding: '10px 20px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem' }}>Cancel</button>
+            <button onClick={handleParse} disabled={!text.trim() || parsing}
+              style={{ flex: 1, padding: '10px', background: !text.trim() || parsing ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: '0.9rem' }}>
+              {parsing ? 'Reading message...' : 'Parse Message'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ color: rows.length ? COLORS.green : COLORS.coral, fontSize: '0.82rem', fontWeight: 700, marginBottom: 12 }}>
+            {rows.length ? `✓ Found ${rows.length} job${rows.length !== 1 ? 's' : ''} — review before saving` : 'No jobs found in that message'}
+          </div>
+          {rows.map((r, i) => (
+            <div key={i} style={{ background: COLORS.lightBlue, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
+                <div>
+                  <div style={rowLabelStyle}>Client</div>
+                  <input value={r.client_name} onChange={e => updateRow(i, 'client_name', e.target.value)} style={rowInputStyle} />
+                </div>
+                <div>
+                  <div style={rowLabelStyle}>Dog(s)</div>
+                  <input value={r.dog_name} onChange={e => updateRow(i, 'dog_name', e.target.value)} style={rowInputStyle} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                <div>
+                  <div style={rowLabelStyle}>Date</div>
+                  <input type="date" value={r.job_date} onChange={e => updateRow(i, 'job_date', e.target.value)} style={rowInputStyle} />
+                </div>
+                <div>
+                  <div style={rowLabelStyle}>Time</div>
+                  <input type="time" value={r.job_time} onChange={e => updateRow(i, 'job_time', e.target.value)} style={rowInputStyle} />
+                </div>
+                <div>
+                  <div style={rowLabelStyle}>Service</div>
+                  <select value={r.service_idx} onChange={e => updateRow(i, 'service_idx', parseInt(e.target.value))} style={rowInputStyle}>
+                    {SERVICES.slice(1).map((s, si) => <option key={si} value={si + 1}>{s.name}</option>)}
+                  </select>
+                </div>
+                <button onClick={() => removeRow(i)}
+                  style={{ background: COLORS.lightRed, border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: '0.72rem', color: COLORS.coral, fontWeight: 700 }}>✕</button>
+              </div>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => setRows(null)} style={{ padding: '10px 16px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem' }}>Back</button>
+            <button onClick={onCancel} style={{ padding: '10px 16px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem' }}>Cancel</button>
+            <button onClick={handleSave} disabled={saving || rows.length === 0}
+              style={{ flex: 1, padding: '10px', background: saving || rows.length === 0 ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: '0.9rem' }}>
+              {saving ? 'Saving...' : `Save ${rows.length} Job${rows.length !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ApplyTemplatePanel({ clients, onSaved, onCancel }) {
+  const templatedClients = clients.filter(c => (c.default_schedule || []).length > 0)
+  const [clientId, setClientId] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const selectedClient = templatedClients.find(c => c.id === clientId)
+  const template = selectedClient?.default_schedule || []
+
+  const dayCount = (() => {
+    if (!startDate || !endDate) return 0
+    const start = new Date(startDate + 'T00:00:00')
+    const end = new Date(endDate + 'T00:00:00')
+    if (end < start) return 0
+    return Math.floor((end - start) / 86400000) + 1
+  })()
+
+  const totalJobs = dayCount * template.length
+
+  const handleGenerate = async () => {
+    if (!selectedClient || !startDate || !endDate || template.length === 0) return
+    setSaving(true)
+
+    const dogName = (selectedClient.dogs || []).map(d => d.name).join(', ')
+    const rows = []
+    const cur = new Date(startDate + 'T00:00:00')
+    const end = new Date(endDate + 'T00:00:00')
+    while (cur <= end) {
+      const dateStr = cur.toISOString().split('T')[0]
+      for (const entry of template) {
+        rows.push({
+          client_id: selectedClient.id,
+          client_name: selectedClient.name,
+          dog_id: null,
+          dog_name: dogName,
+          job_date: dateStr,
+          job_time: entry.time || null,
+          service_type: entry.service_type || 1,
+          duration: entry.duration || (entry.service_type === 2 || entry.service_type === 3 ? 1 : 15),
+          notes: entry.notes || '',
+          invoiced: false,
+        })
+      }
+      cur.setDate(cur.getDate() + 1)
+    }
+
+    await fetch('/api/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rows),
+    })
+    setSaving(false)
+    await onSaved()
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, padding: '20px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }}>
+      <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem', marginBottom: 4 }}>Apply Template</div>
+
+      {templatedClients.length === 0 ? (
+        <>
+          <div style={{ color: '#888', fontSize: '0.85rem', marginBottom: 14 }}>
+            No clients have a default schedule set up yet — add one from the Clients tab first.
+          </div>
+          <button onClick={onCancel} style={{ padding: '10px 20px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem' }}>Close</button>
+        </>
+      ) : (
+        <>
+          <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: 14 }}>
+            Pick a client and a date range — their default jobs will be created for every day in that range.
+          </div>
+
+          <JobField label="Client">
+            <select value={clientId} onChange={e => setClientId(e.target.value)}
+              style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }}>
+              <option value="">-- Select Client --</option>
+              {templatedClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </JobField>
+
+          {selectedClient && (
+            <div style={{ color: '#666', fontSize: '0.78rem', marginBottom: 12 }}>
+              {template.length} default job{template.length !== 1 ? 's' : ''}: {template.map(t => SERVICES[t.service_type]?.name).join(', ')}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: '0.62rem', color: '#888', fontWeight: 700, marginBottom: 3 }}>FROM</div>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                style={{ width: '100%', border: 'none', borderBottom: `2px solid ${COLORS.blue}`, fontSize: '0.9rem', padding: '4px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.62rem', color: '#888', fontWeight: 700, marginBottom: 3 }}>TO</div>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                style={{ width: '100%', border: 'none', borderBottom: `2px solid ${COLORS.blue}`, fontSize: '0.9rem', padding: '4px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
+            </div>
+          </div>
+
+          {totalJobs > 0 && (
+            <div style={{ background: COLORS.lightBlue, borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: '0.82rem', color: COLORS.darkBlue, fontWeight: 700 }}>
+              📅 This will create <span style={{ color: COLORS.coral, fontWeight: 900 }}>{totalJobs} job{totalJobs !== 1 ? 's' : ''}</span> across {dayCount} day{dayCount !== 1 ? 's' : ''}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onCancel} style={{ padding: '10px 20px', background: '#f5f5f5', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: '0.85rem' }}>Cancel</button>
+            <button onClick={handleGenerate} disabled={saving || totalJobs === 0}
+              style={{ flex: 1, padding: '10px', background: saving || totalJobs === 0 ? '#ccc' : COLORS.coral, color: '#fff', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: '0.9rem' }}>
+              {saving ? 'Creating...' : totalJobs > 0 ? `Create ${totalJobs} Jobs` : 'Generate Jobs'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

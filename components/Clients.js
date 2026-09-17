@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { COLORS } from '../lib/helpers'
+import { COLORS, SERVICES } from '../lib/helpers'
 import Toast from './Toast'
+
+const emptyTemplateEntry = () => ({ service_type: 1, time: '', duration: 15, notes: '' })
 
 function ClientField({ label, value, onChange, placeholder }) {
   return (
@@ -20,12 +22,21 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
   const [address, setAddress] = useState(initial?.address || '')
   const [notes, setNotes] = useState(initial?.notes || '')
   const [dogList, setDogList] = useState(initialDogs.length > 0 ? initialDogs : [{ name: '', breed: '', notes: '', isNew: true }])
+  const [template, setTemplate] = useState(initial?.default_schedule?.length > 0 ? initial.default_schedule : [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
   const addDog = () => setDogList(prev => [...prev, { name: '', breed: '', notes: '', isNew: true }])
   const removeDog = (i) => setDogList(prev => prev.filter((_, idx) => idx !== i))
   const updateDog = (i, field, val) => setDogList(prev => { const n = [...prev]; n[i] = { ...n[i], [field]: val }; return n })
+
+  const addTemplateEntry = () => setTemplate(prev => [...prev, emptyTemplateEntry()])
+  const removeTemplateEntry = (i) => setTemplate(prev => prev.filter((_, idx) => idx !== i))
+  const updateTemplateEntry = (i, field, val) => setTemplate(prev => {
+    const n = [...prev]
+    n[i] = { ...n[i], [field]: field === 'service_type' ? parseInt(val) : field === 'duration' ? (parseInt(val) || 1) : val }
+    return n
+  })
 
   const handleSave = async () => {
     if (!name.trim()) return
@@ -40,6 +51,7 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
         notes,
         dogs: dogList,
         initialDogIds: initialDogs.map(d => d.id),
+        default_schedule: template.filter(t => t.service_type > 0),
       }
       if (initial) body.id = initial.id
 
@@ -103,6 +115,37 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
           ))}
           <button onClick={addDog} style={{ background: 'none', border: `2px dashed ${COLORS.blue}`, borderRadius: 10, padding: '8px 16px', color: COLORS.darkBlue, fontWeight: 700, fontSize: '0.85rem', width: '100%' }}>
             + Add Another Dog
+          </button>
+        </div>
+
+        <div style={{ marginTop: 16, marginBottom: 8 }}>
+          <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '0.9rem', marginBottom: 4 }}>🗓️ Default Schedule</div>
+          <div style={{ color: '#888', fontSize: '0.78rem', marginBottom: 10 }}>
+            Recurring visits for this client — used by "Apply Template" in the Schedule tab.
+          </div>
+          {template.map((entry, i) => (
+            <div key={i} style={{ background: COLORS.lightBlue, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
+                <div>
+                  <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Service</div>
+                  <select value={entry.service_type} onChange={e => updateTemplateEntry(i, 'service_type', e.target.value)} style={dogInputStyle}>
+                    {SERVICES.slice(1).map((s, si) => <option key={si} value={si + 1}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Time</div>
+                  <input type="time" value={entry.time} onChange={e => updateTemplateEntry(i, 'time', e.target.value)} style={dogInputStyle} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <input value={entry.notes} onChange={e => updateTemplateEntry(i, 'notes', e.target.value)} placeholder="Notes (optional)"
+                  style={{ flex: 1, border: 'none', borderBottom: '1px solid #aac', fontSize: '0.82rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
+                <button onClick={() => removeTemplateEntry(i)} style={{ background: COLORS.lightRed, border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: '0.75rem', color: COLORS.coral, fontWeight: 700 }}>✕</button>
+              </div>
+            </div>
+          ))}
+          <button onClick={addTemplateEntry} style={{ background: 'none', border: `2px dashed ${COLORS.blue}`, borderRadius: 10, padding: '8px 16px', color: COLORS.darkBlue, fontWeight: 700, fontSize: '0.85rem', width: '100%' }}>
+            + Add Default Job
           </button>
         </div>
 
@@ -175,6 +218,11 @@ export default function Clients({ clients, dogs, onRefresh }) {
                     </div>
                   )}
                   {client.notes && <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 6, fontStyle: 'italic' }}>{client.notes}</div>}
+                  {client.default_schedule?.length > 0 && (
+                    <div style={{ color: COLORS.darkBlue, fontSize: '0.72rem', marginTop: 6 }}>
+                      🗓️ {client.default_schedule.length} default job{client.default_schedule.length !== 1 ? 's' : ''}: {client.default_schedule.map(t => SERVICES[t.service_type]?.name).join(', ')}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginLeft: 10 }}>
                   <button onClick={() => { setEditClient(client); setShowForm(true) }}

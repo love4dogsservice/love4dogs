@@ -62,6 +62,8 @@ export default function Home() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
+  const goHome = () => { setActiveInv(null); setView('home') }
+
   const loadAll = async () => {
     try {
       const res = await fetch('/api/data')
@@ -131,6 +133,7 @@ export default function Home() {
           dogs={dogs}
           onSaved={async (inv) => { await loadAll(); setActiveInv(inv); setView('detail'); showToast('Invoice saved!') }}
           onCancel={() => setView('home')}
+          onHome={goHome}
         />
       </>
     )
@@ -147,6 +150,7 @@ export default function Home() {
           dogs={dogs}
           onSave={handleManualSave}
           onCancel={() => setView(activeInv ? 'detail' : 'home')}
+          onHome={goHome}
         />
       </>
     )
@@ -160,9 +164,10 @@ export default function Home() {
         <InvoiceDetail
           inv={activeInv}
           onEdit={() => setView('manual')}
-          onBack={() => { setActiveInv(null); setView('home') }}
+          onBack={goHome}
           onTogglePaid={handleTogglePaid}
           onDelete={handleDelete}
+          onHome={goHome}
         />
       </>
     )

@@ -13,7 +13,7 @@ function Field({ label, children }) {
   )
 }
 
-export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }) {
+export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, onHome }) {
   const emptyItems = () => Array(8).fill(null).map(() => ({ service_idx: 0, date: '', qty: '' }))
 
   const clientsWithDogs = (clients || []).map(c => ({
@@ -81,7 +81,9 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel }
 
       <div style={{ background: COLORS.blue, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '0.9rem', fontWeight: 700 }}>← Back</button>
-        <div style={{ color: '#fff', fontWeight: 900, fontSize: '1rem' }}>{initial ? `Edit Invoice #${initial.invoice_number}` : 'Manual Invoice'}</div>
+        {onHome && (
+          <button onClick={onHome} title="Home" style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer' }}>🐾 Love 4 Dogs</button>
+        )}
         <button onClick={handleSave} disabled={saving} style={{ background: saving ? '#aaa' : COLORS.coral, border: 'none', color: '#fff', padding: '8px 18px', borderRadius: 16, fontSize: '0.85rem', fontWeight: 800 }}>
           {saving ? 'Saving...' : 'Save'}
         </button>

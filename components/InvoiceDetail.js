@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, buildShareText, formatDateShort } from '../lib/helpers'
 import Toast from './Toast'
 
-export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDelete }) {
+export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDelete, onHome }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [toast, setToast] = useState(null)
   const [toggling, setToggling] = useState(false)
@@ -65,7 +65,11 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
         position: 'sticky', top: 0, zIndex: 100,
       }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}>←</button>
-        <div style={{ color: '#fff', fontWeight: 900, fontSize: '1rem' }}>Invoice #{inv.invoice_number}</div>
+        {onHome ? (
+          <button onClick={onHome} title="Home" style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer' }}>🐾 Love 4 Dogs</button>
+        ) : (
+          <div style={{ color: '#fff', fontWeight: 900, fontSize: '1rem' }}>Invoice #{inv.invoice_number}</div>
+        )}
         <button onClick={onEdit} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer' }}>Edit</button>
       </div>
 

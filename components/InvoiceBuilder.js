@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { COLORS, SERVICES, calcLineTotal, getQtyLabel } from '../lib/helpers'
 import Toast from './Toast'
 
-export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
+export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHome }) {
   const [step, setStep] = useState(1) // 1=select client, 2=select dates, 3=review
   const [selectedClient, setSelectedClient] = useState(null)
   const [selectedDogs, setSelectedDogs] = useState([])
@@ -31,7 +31,7 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
       return
     }
     const res = await fetch(
-      `/api/schedule?client_id=${encodeURIComponent(selectedClient.id)}&start=${periodStart}&end=${periodEnd}`
+      `/api/schedule?client_id=${encodeURIComponent(selectedClient.id)}&client_name=${encodeURIComponent(selectedClient.name)}&start=${periodStart}&end=${periodEnd}`
     )
     const data = res.ok ? await res.json() : []
 
@@ -98,7 +98,9 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel }) {
 
       <div style={{ background: COLORS.blue, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>← Back</button>
-        <div style={{ color: '#fff', fontWeight: 900, fontSize: '1rem' }}>Invoice from Schedule</div>
+        {onHome && (
+          <button onClick={onHome} title="Home" style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 900, fontSize: '0.95rem', cursor: 'pointer' }}>🐾 Love 4 Dogs</button>
+        )}
         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>Step {step} of 3</div>
       </div>
 

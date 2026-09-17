@@ -20,14 +20,24 @@ async function handleSchedule(req, res) {
   const supabase = createClient(supabaseUrl, supabaseKey)
 
   if (req.method === 'GET') {
-    const { client_id, start, end } = req.query
+    const { client_id, client_name, start, end } = req.query
+    console.log('[schedule] GET query params:', { client_id, client_name, start, end })
+
     let query = supabase.from('schedule').select('*')
-    if (client_id) query = query.eq('client_id', client_id)
+    if (client_id && client_name) {
+      const escapedName = String(client_name).replace(/"/g, '\\"')
+      query = query.or(`client_id.eq.${client_id},and(client_id.is.null,client_name.eq."${escapedName}")`)
+    } else if (client_id) {
+      query = query.eq('client_id', client_id)
+    } else if (client_name) {
+      query = query.eq('client_name', client_name)
+    }
     if (start) query = query.gte('job_date', start)
     if (end) query = query.lte('job_date', end)
-    if (client_id) query = query.neq('invoiced', true) // catch false AND null
+    if (client_id || client_name) query = query.neq('invoiced', true) // catch false AND null
     query = query.order('job_date').order('job_time')
     const { data, error } = await query
+    console.log('[schedule] GET result — rows:', data?.length, 'error:', error?.message || null)
     if (error) return res.status(500).json({ error: error.message })
     return res.status(200).json(data)
   }

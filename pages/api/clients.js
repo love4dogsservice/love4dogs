@@ -49,7 +49,7 @@ async function handleClients(req, res) {
 
   console.log('[clients] body:', JSON.stringify(req.body, null, 2))
 
-  const { id, name, phone, address, notes, dogs, initialDogIds } = req.body
+  const { id, name, phone, address, notes, dogs, initialDogIds, default_schedule } = req.body
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Client name is required' })
@@ -61,7 +61,7 @@ async function handleClients(req, res) {
   if (req.method === 'PUT' && id) {
     const { data, error } = await supabase
       .from('clients')
-      .update({ name: name.trim(), phone: phone || '', address: address || '', notes: notes || '' })
+      .update({ name: name.trim(), phone: phone || '', address: address || '', notes: notes || '', default_schedule: default_schedule || [] })
       .eq('id', id)
       .select()
       .single()
@@ -75,7 +75,7 @@ async function handleClients(req, res) {
   } else {
     const { data, error } = await supabase
       .from('clients')
-      .insert([{ name: name.trim(), phone: phone || '', address: address || '', notes: notes || '' }])
+      .insert([{ name: name.trim(), phone: phone || '', address: address || '', notes: notes || '', default_schedule: default_schedule || [] }])
       .select()
       .single()
     console.log('[clients] insert result:', { data, error })
