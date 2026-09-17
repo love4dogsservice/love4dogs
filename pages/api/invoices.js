@@ -95,7 +95,6 @@ async function handleInvoices(req, res) {
     period_start: body.period_start || null,
     period_end: body.period_end || null,
     special_notes: body.special_notes || null,
-    payment_notes: body.payment_notes || null,
     line_items: body.line_items || [],
     total: parseFloat(body.total) || 0,
   }

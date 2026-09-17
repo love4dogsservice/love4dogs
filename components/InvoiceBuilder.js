@@ -10,7 +10,6 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
   const [periodEnd, setPeriodEnd] = useState('')
   const [jobs, setJobs] = useState([])
   const [lineItems, setLineItems] = useState([])
-  const [paymentNotes, setPaymentNotes] = useState('Payment due upon receipt. Cash or Venmo accepted. Thank you! 🐾')
   const [specialNotes, setSpecialNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
@@ -68,7 +67,6 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
       period_start: periodStart,
       period_end: periodEnd,
       special_notes: specialNotes,
-      payment_notes: paymentNotes,
       line_items: lineItems,
       total,
       job_ids: lineItems.filter(i => i.job_id).map(i => i.job_id),
@@ -244,9 +242,6 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
             <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', marginBottom: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}>
               <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Special Instructions</div>
               <input value={specialNotes} onChange={e => setSpecialNotes(e.target.value)} placeholder="Any special notes..."
-                style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600, marginBottom: 12 }} />
-              <div style={{ fontSize: '0.68rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 4 }}>Payment Notes</div>
-              <input value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)}
                 style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
             </div>
 

@@ -108,12 +108,6 @@ export default function InvoicePage() {
             <span style={{ fontWeight: 900, color: COLORS.darkBlue, fontSize: '1rem' }}>Total Due</span>
             <span style={{ fontWeight: 900, color: COLORS.coral, fontSize: '1.1rem' }}>${total.toFixed(2)}</span>
           </div>
-
-          {inv.payment_notes && (
-            <div style={{ padding: '10px 12px', border: '1px solid #eee', borderRadius: 8, fontSize: '0.82rem', color: '#555' }}>
-              {inv.payment_notes}
-            </div>
-          )}
         </div>
 
         <div style={{ background: COLORS.blue, color: '#fff', textAlign: 'center', padding: '12px', fontSize: '0.85rem', fontWeight: 800 }}>

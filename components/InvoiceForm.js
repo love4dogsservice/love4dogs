@@ -27,7 +27,6 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
   const [periodStart, setPeriodStart] = useState(initial?.period_start || '')
   const [periodEnd, setPeriodEnd] = useState(initial?.period_end || '')
   const [specialNotes, setSpecialNotes] = useState(initial?.special_notes || '')
-  const [paymentNotes, setPaymentNotes] = useState(initial?.payment_notes || 'Payment due upon receipt. Cash or Venmo accepted. Thank you! 🐾')
   const [lineItems, setLineItems] = useState(
     typeof initial?.line_items === 'string' ? JSON.parse(initial.line_items) : (initial?.line_items || emptyItems())
   )
@@ -64,7 +63,6 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
         period_start: periodStart || null,
         period_end: periodEnd || null,
         special_notes: specialNotes.trim(),
-        payment_notes: paymentNotes.trim(),
         line_items: lineItems,
         total,
       })
@@ -168,10 +166,6 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
               <span style={{ color: COLORS.coral, fontWeight: 900, fontSize: '1.1rem' }}>${total.toFixed(2)}</span>
             </div>
           </div>
-        </div>
-
-        <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', marginBottom: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.07)' }}>
-          <Field label="Payment Notes"><input value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)} style={inputStyle} /></Field>
         </div>
 
         <button onClick={handleSave} disabled={saving}

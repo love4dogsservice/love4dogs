@@ -183,12 +183,6 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
               <span style={{ fontWeight: 900, color: COLORS.darkBlue, fontSize: '1rem' }}>Total Due</span>
               <span style={{ fontWeight: 900, color: COLORS.coral, fontSize: '1.1rem' }}>${Number(inv.total).toFixed(2)}</span>
             </div>
-
-            {inv.payment_notes && (
-              <div style={{ marginTop: 12, padding: '10px 12px', border: '1px solid #eee', borderRadius: 8, fontSize: '0.8rem', color: '#555' }}>
-                {inv.payment_notes}
-              </div>
-            )}
           </div>
 
           <div style={{ background: COLORS.blue, color: '#fff', textAlign: 'center', padding: '11px', fontSize: '0.85rem', fontWeight: 800 }}>
