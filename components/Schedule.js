@@ -15,7 +15,7 @@ const pad2 = (n) => String(n).padStart(2, '0')
 // multi-dog job names are comma-separated ("Buddy, Max").
 const icsEscape = (text) => String(text || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n')
 
-function downloadJobIcs(job) {
+function buildVeventBlock(job) {
   const svc = SERVICES[job.service_type]?.name || 'Job'
   const [y, m, d] = job.job_date.split('-').map(Number)
 
@@ -43,12 +43,9 @@ function downloadJobIcs(job) {
     `Service: ${svc}`,
     'Love 4 Dogs - 601-946-3924',
   ].filter(Boolean).join('\n'))
-  const uid = `love4dogs-${job.id || Date.now()}@love4dogs`
+  const uid = `love4dogs-${job.id || Date.now()}-${Math.random().toString(36).slice(2)}@love4dogs`
 
-  const icsContent = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Love4Dogs//EN',
+  return [
     'BEGIN:VEVENT',
     `UID:${uid}`,
     dtStartLine,
@@ -61,18 +58,39 @@ function downloadJobIcs(job) {
     'DESCRIPTION:Reminder',
     'END:VALARM',
     'END:VEVENT',
+  ].join('\r\n')
+}
+
+// Accepts an array of jobs and returns one .ics string containing one
+// VEVENT block per job, so iOS imports them all from a single file.
+function generateICS(jobs) {
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Love4Dogs//EN',
+    ...jobs.map(buildVeventBlock),
     'END:VCALENDAR',
   ].join('\r\n')
+}
 
+function downloadIcsFile(icsContent, filename) {
   const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'love4dogs-job.ics'
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+function downloadJobIcs(job) {
+  downloadIcsFile(generateICS([job]), 'love4dogs-job.ics')
+}
+
+function downloadJobsIcs(jobs) {
+  downloadIcsFile(generateICS(jobs), `love4dogs-jobs-${jobs.length}.ics`)
 }
 
 export default function Schedule({ clients, dogs }) {
@@ -85,6 +103,7 @@ export default function Schedule({ clients, dogs }) {
   const [editJob, setEditJob] = useState(null)
   const [panel, setPanel] = useState(null) // null | 'voice' | 'paste' | 'template'
   const [toast, setToast] = useState(null)
+  const [postSavePrompt, setPostSavePrompt] = useState(null) // array of just-saved jobs, or null
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
@@ -144,6 +163,10 @@ export default function Schedule({ clients, dogs }) {
   return (
     <div style={{ padding: '14px 16px', maxWidth: 700, margin: '0 auto' }}>
       {toast && <Toast msg={toast} />}
+
+      {postSavePrompt && (
+        <AddToCalendarPrompt jobs={postSavePrompt} onDismiss={() => setPostSavePrompt(null)} />
+      )}
 
       {/* Quick action panels */}
       {panel === 'voice' ? (
@@ -255,6 +278,17 @@ export default function Schedule({ clients, dogs }) {
               + Add Job
             </button>
           </div>
+          {selectedJobs.length > 1 && (
+            <button onClick={() => downloadJobsIcs(selectedJobs)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                width: '100%', marginBottom: 10, background: '#f0f4ff', border: 'none',
+                borderRadius: 10, padding: '9px', fontSize: '0.82rem', fontWeight: 800,
+                color: '#3a5bbf', cursor: 'pointer',
+              }}>
+              📅 Add All {selectedJobs.length} to Calendar
+            </button>
+          )}
           {selectedJobs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '16px', color: '#aaa', fontSize: '0.85rem' }}>No jobs — tap + Add Job</div>
           ) : selectedJobs.map(job => (
@@ -319,10 +353,40 @@ export default function Schedule({ clients, dogs }) {
           initial={editJob}
           defaultDate={selectedDateKey}
           clients={clientsWithDogs}
-          onSave={async () => { await loadJobs(); setShowForm(false); setEditJob(null); showToast('Job saved!') }}
+          onSave={async (savedJobs) => {
+            await loadJobs()
+            setShowForm(false)
+            setEditJob(null)
+            if (savedJobs && savedJobs.length > 0) {
+              setPostSavePrompt(savedJobs)
+            } else {
+              showToast('Job saved!')
+            }
+          }}
           onCancel={() => { setShowForm(false); setEditJob(null) }}
         />
       )}
+    </div>
+  )
+}
+
+function AddToCalendarPrompt({ jobs, onDismiss }) {
+  const count = jobs.length
+  return (
+    <div style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', marginBottom: 14, boxShadow: '0 2px 12px rgba(0,0,0,0.1)', border: `2px solid ${COLORS.blue}` }}>
+      <div style={{ fontWeight: 800, color: COLORS.navy, fontSize: '0.9rem', marginBottom: 10 }}>
+        {count > 1 ? `🎉 ${count} jobs created! Add all to iPhone Calendar?` : '✓ Job saved! Add to iPhone Calendar?'}
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onDismiss}
+          style={{ flex: 1, padding: '10px', background: '#f5f5f5', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem' }}>
+          No thanks
+        </button>
+        <button onClick={() => { downloadJobsIcs(jobs); onDismiss() }}
+          style={{ flex: 2, padding: '10px', background: COLORS.coral, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 800, fontSize: '0.85rem' }}>
+          📅 Add to Calendar
+        </button>
+      </div>
     </div>
   )
 }
@@ -408,6 +472,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [duration, setDuration] = useState(initial?.duration ?? (initial?.service_type === 2 || initial?.service_type === 3 ? 1 : 15))
   const [notes, setNotes] = useState(initial?.notes || '')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   // Recurring state
   const [recurring, setRecurring] = useState(false)
@@ -441,6 +506,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const handleSave = async () => {
     if (!clientName.trim() || !date) return
     setSaving(true)
+    setError(null)
 
     // One service fee covers all selected dogs — store their names comma-separated
     // on a single row, rather than one row (and one fee) per dog.
@@ -457,20 +523,35 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
       service_type: svcType, duration: duration || null, notes: notes.trim(), invoiced: false,
     }
 
+    let savedJobs = []
+    let ok = false
     if (initial?.id) {
-      await fetch('/api/schedule', {
+      const res = await fetch('/api/schedule', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: initial.id, ...base, job_date: date }),
       })
+      ok = res.ok
+      if (ok) savedJobs = [await res.json()]
     } else {
       const dates = recurring && occurrences.length > 0 ? occurrences : [date]
       const rows = dates.map(d => ({ ...base, job_date: d }))
-      await fetch('/api/schedule', {
+      const res = await fetch('/api/schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rows),
       })
+      ok = res.ok
+      if (ok) {
+        const data = await res.json()
+        savedJobs = Array.isArray(data) ? data : (data ? [data] : [])
+      }
+    }
+
+    if (!ok) {
+      setSaving(false)
+      setError('Could not save — check your connection and try again')
+      return
     }
 
     if (!recurring && time && 'Notification' in window && Notification.permission === 'granted') {
@@ -488,7 +569,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
     }
 
     setSaving(false)
-    await onSave()
+    await onSave(savedJobs)
   }
 
   const canSave = clientName.trim() && (
@@ -504,6 +585,12 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
           <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '1rem' }}>{initial?.id ? 'Edit Job' : 'Add Job'}</div>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', fontSize: '1.4rem', color: '#aaa' }}>✕</button>
         </div>
+
+        {error && (
+          <div style={{ background: '#fff0ee', border: `1px solid ${COLORS.coral}`, borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: COLORS.coral, fontSize: '0.82rem', fontWeight: 700 }}>
+            ⚠ {error}
+          </div>
+        )}
 
         <JobField label="Client">
           {clients.length > 0 ? (
