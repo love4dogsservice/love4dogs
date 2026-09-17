@@ -47,6 +47,8 @@ export default function handler(req, res) {
   const filename = `love4dogs-${date}-${(client || 'job').replace(/\s+/g, '-')}.ics`
 
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8')
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  // "inline" (not "attachment") — lets iOS/iPadOS Safari hand this straight to the
+  // Calendar app instead of treating it as a file download, which iOS mishandles.
+  res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
   res.status(200).send(ics)
 }

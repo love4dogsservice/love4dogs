@@ -5,6 +5,10 @@ import {
 } from '../lib/helpers'
 import Toast from './Toast'
 
+// Shared by the calendar's day-name header row and its date grid so the two
+// grids can never end up with different column widths.
+const CALENDAR_COLS = 'repeat(7, minmax(44px, 1fr))'
+
 export default function Schedule({ clients, dogs }) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -127,16 +131,18 @@ export default function Schedule({ clients, dogs }) {
           style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontWeight: 700, fontSize: '1rem', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>›</button>
       </div>
 
-      {/* Calendar */}
-      <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', marginBottom: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: COLORS.lightBlue }}>
+      {/* Calendar — header and date grid share one column definition (CALENDAR_COLS)
+          with a 44px floor per column so they can never drift out of alignment or
+          get squeezed unreadably small on narrow phones. */}
+      <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.08)', marginBottom: 14, overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: CALENDAR_COLS, background: COLORS.lightBlue }}>
           {DAY_NAMES.map(d => (
-            <div key={d} style={{ textAlign: 'center', padding: '8px 2px', fontSize: '0.68rem', fontWeight: 800, color: COLORS.darkBlue, textTransform: 'uppercase' }}>{d}</div>
+            <div key={d} style={{ textAlign: 'center', padding: '8px 2px', fontSize: '0.7rem', fontWeight: 800, color: COLORS.darkBlue, textTransform: 'uppercase' }}>{d}</div>
           ))}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: CALENDAR_COLS }}>
           {Array(firstDay).fill(null).map((_, i) => (
-            <div key={`e${i}`} style={{ minHeight: 58, borderBottom: '1px solid #f0f0f0', borderRight: '1px solid #f0f0f0' }} />
+            <div key={`e${i}`} style={{ minHeight: 50, borderBottom: '1px solid #f0f0f0', borderRight: '1px solid #f0f0f0' }} />
           ))}
           {Array(daysInMonth).fill(null).map((_, i) => {
             const day = i + 1
@@ -147,26 +153,26 @@ export default function Schedule({ clients, dogs }) {
             return (
               <div key={day} onClick={() => setSelectedDay(isSelected ? null : day)}
                 style={{
-                  minHeight: 58, padding: '3px', cursor: 'pointer',
+                  minHeight: 50, padding: '3px', cursor: 'pointer',
                   borderBottom: '1px solid #f0f0f0', borderRight: '1px solid #f0f0f0',
                   background: isSelected ? COLORS.lightBlue : isToday ? '#fffbe6' : '#fff',
                 }}>
                 <div style={{
                   width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 2,
                   background: isToday ? COLORS.blue : 'transparent',
-                  color: isToday ? '#fff' : COLORS.navy, fontWeight: isToday ? 900 : 600, fontSize: '0.8rem',
+                  color: isToday ? '#fff' : COLORS.navy, fontWeight: isToday ? 900 : 600, fontSize: '0.82rem',
                 }}>{day}</div>
                 {dayJobs.slice(0, 2).map((job, ji) => (
                   <div key={ji} style={{
                     background: SERVICE_COLORS[job.service_type] || COLORS.blue,
                     borderRadius: 3, padding: '1px 3px', marginBottom: 1,
-                    fontSize: '0.55rem', color: '#fff', fontWeight: 700,
+                    fontSize: '0.62rem', color: '#fff', fontWeight: 700,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {job.job_time ? formatTime(job.job_time).replace(' AM','a').replace(' PM','p') + ' ' : ''}{job.dog_name || job.client_name}
                   </div>
                 ))}
-                {dayJobs.length > 2 && <div style={{ fontSize: '0.55rem', color: '#888', fontWeight: 600 }}>+{dayJobs.length - 2}</div>}
+                {dayJobs.length > 2 && <div style={{ fontSize: '0.62rem', color: '#888', fontWeight: 600 }}>+{dayJobs.length - 2}</div>}
               </div>
             )
           })}
@@ -212,17 +218,21 @@ export default function Schedule({ clients, dogs }) {
               </div>
               {/* Action row */}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                <a
-                  href={`/api/ics?date=${job.job_date}&time=${job.job_time || ''}&service=${encodeURIComponent(SERVICES[job.service_type]?.name || '')}&client=${encodeURIComponent(job.client_name || '')}&dog=${encodeURIComponent(job.dog_name || '')}&duration=${job.duration || 60}`}
-                  download
+                <button
+                  onClick={() => {
+                    const icsUrl = `/api/ics?date=${job.job_date}&time=${job.job_time || ''}&service=${encodeURIComponent(SERVICES[job.service_type]?.name || '')}&client=${encodeURIComponent(job.client_name || '')}&dog=${encodeURIComponent(job.dog_name || '')}&duration=${job.duration || 60}`
+                    // Open the .ics response directly (rather than forcing a download) so
+                    // iOS/iPadOS Safari can hand it to the Calendar app natively.
+                    window.open(icsUrl, '_blank')
+                  }}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
                     background: '#f0f4ff', border: 'none', borderRadius: 8,
                     padding: '5px 10px', fontSize: '0.72rem', fontWeight: 700,
-                    color: '#3a5bbf', textDecoration: 'none', cursor: 'pointer',
+                    color: '#3a5bbf', cursor: 'pointer',
                   }}>
                   📅 Add to Calendar
-                </a>
+                </button>
                 <button onClick={() => {
                   const svc = SERVICES[job.service_type]?.name || 'Job'
                   const timeStr = job.job_time ? formatTime(job.job_time) : ''
