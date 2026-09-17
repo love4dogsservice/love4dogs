@@ -910,11 +910,44 @@ function PasteTextPanel({ clients, onSaved, onCancel }) {
   )
 }
 
+// Walks [startDate, endDate] and pairs each day with the template entries that
+// should run on it. With no time window, every entry runs every day (unchanged
+// default behavior). With a time window: the first day only keeps entries at
+// or after fromTime, the last day only keeps entries at or before toTime, and
+// every day in between keeps all entries regardless of time — a single-day
+// range applies both bounds at once, which also covers the "just today" case.
+function computeTemplateOccurrences(template, startDate, endDate, fromTime, toTime) {
+  if (!startDate || !endDate) return []
+  const start = new Date(startDate + 'T00:00:00')
+  const end = new Date(endDate + 'T00:00:00')
+  if (end < start) return []
+
+  const occurrences = []
+  const cur = new Date(start)
+  while (cur <= end) {
+    const dateStr = cur.toISOString().split('T')[0]
+    const isFirstDay = dateStr === startDate
+    const isLastDay = dateStr === endDate
+    for (const entry of template) {
+      let include = true
+      if (entry.time) {
+        if (isFirstDay && fromTime && entry.time < fromTime) include = false
+        if (isLastDay && toTime && entry.time > toTime) include = false
+      }
+      if (include) occurrences.push({ date: dateStr, entry })
+    }
+    cur.setDate(cur.getDate() + 1)
+  }
+  return occurrences
+}
+
 function ApplyTemplatePanel({ clients, onSaved, onCancel }) {
   const templatedClients = clients.filter(c => (c.default_schedule || []).length > 0)
   const [clientId, setClientId] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [fromTime, setFromTime] = useState('')
+  const [toTime, setToTime] = useState('')
   const [saving, setSaving] = useState(false)
 
   const selectedClient = templatedClients.find(c => c.id === clientId)
@@ -928,34 +961,29 @@ function ApplyTemplatePanel({ clients, onSaved, onCancel }) {
     return Math.floor((end - start) / 86400000) + 1
   })()
 
-  const totalJobs = dayCount * template.length
+  const occurrences = computeTemplateOccurrences(template, startDate, endDate, fromTime, toTime)
+  const totalJobs = occurrences.length
+
+  const dayLabel = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }) : ''
+  const dayTimeLabel = (dateStr, timeStr) => timeStr ? `${dayLabel(dateStr)} ${formatTime(timeStr)}` : dayLabel(dateStr)
 
   const handleGenerate = async () => {
-    if (!selectedClient || !startDate || !endDate || template.length === 0) return
+    if (!selectedClient || !startDate || !endDate || occurrences.length === 0) return
     setSaving(true)
 
     const dogName = (selectedClient.dogs || []).map(d => d.name).join(', ')
-    const rows = []
-    const cur = new Date(startDate + 'T00:00:00')
-    const end = new Date(endDate + 'T00:00:00')
-    while (cur <= end) {
-      const dateStr = cur.toISOString().split('T')[0]
-      for (const entry of template) {
-        rows.push({
-          client_id: selectedClient.id,
-          client_name: selectedClient.name,
-          dog_id: null,
-          dog_name: dogName,
-          job_date: dateStr,
-          job_time: entry.time || null,
-          service_type: entry.service_type || 1,
-          duration: entry.duration || (entry.service_type === 2 || entry.service_type === 3 ? 1 : 15),
-          notes: entry.notes || '',
-          invoiced: false,
-        })
-      }
-      cur.setDate(cur.getDate() + 1)
-    }
+    const rows = occurrences.map(({ date, entry }) => ({
+      client_id: selectedClient.id,
+      client_name: selectedClient.name,
+      dog_id: null,
+      dog_name: dogName,
+      job_date: date,
+      job_time: entry.time || null,
+      service_type: entry.service_type || 1,
+      duration: entry.duration || (entry.service_type === 2 || entry.service_type === 3 ? 1 : 15),
+      notes: entry.notes || '',
+      invoiced: false,
+    }))
 
     await fetch('/api/schedule', {
       method: 'POST',
@@ -1010,9 +1038,28 @@ function ApplyTemplatePanel({ clients, onSaved, onCancel }) {
             </div>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 4 }}>
+            <div>
+              <div style={{ fontSize: '0.62rem', color: '#888', fontWeight: 700, marginBottom: 3 }}>FROM TIME (OPTIONAL)</div>
+              <input type="time" value={fromTime} onChange={e => setFromTime(e.target.value)}
+                style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.62rem', color: '#888', fontWeight: 700, marginBottom: 3 }}>TO TIME (OPTIONAL)</div>
+              <input type="time" value={toTime} onChange={e => setToTime(e.target.value)}
+                style={{ width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', background: 'transparent', fontWeight: 600 }} />
+            </div>
+          </div>
+          <div style={{ color: '#999', fontSize: '0.72rem', marginBottom: 12 }}>
+            Leave blank to include every default job on every day. Set both to only cover jobs within that window on the first and last day.
+          </div>
+
           {totalJobs > 0 && (
             <div style={{ background: COLORS.lightBlue, borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: '0.82rem', color: COLORS.darkBlue, fontWeight: 700 }}>
-              📅 This will create <span style={{ color: COLORS.coral, fontWeight: 900 }}>{totalJobs} job{totalJobs !== 1 ? 's' : ''}</span> across {dayCount} day{dayCount !== 1 ? 's' : ''}
+              📅 This will create <span style={{ color: COLORS.coral, fontWeight: 900 }}>{totalJobs} job{totalJobs !== 1 ? 's' : ''}</span>{' '}
+              {(fromTime || toTime)
+                ? <>between {dayTimeLabel(startDate, fromTime)} and {dayTimeLabel(endDate, toTime)}</>
+                : <>across {dayCount} day{dayCount !== 1 ? 's' : ''}</>}
             </div>
           )}
 
