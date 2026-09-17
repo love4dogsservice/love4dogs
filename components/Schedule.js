@@ -9,6 +9,72 @@ import Toast from './Toast'
 // grids can never end up with different column widths.
 const CALENDAR_COLS = 'repeat(7, minmax(44px, 1fr))'
 
+const pad2 = (n) => String(n).padStart(2, '0')
+
+// Escape TEXT-type ICS property values per RFC 5545 — matters here since
+// multi-dog job names are comma-separated ("Buddy, Max").
+const icsEscape = (text) => String(text || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n')
+
+function downloadJobIcs(job) {
+  const svc = SERVICES[job.service_type]?.name || 'Job'
+  const [y, m, d] = job.job_date.split('-').map(Number)
+
+  let dtStartLine, dtEndLine
+  if (job.job_time) {
+    const [h, min] = job.job_time.split(':').map(Number)
+    const start = new Date(y, m - 1, d, h, min)
+    const end = new Date(start.getTime() + 60 * 60 * 1000) // DTEND = one hour after DTSTART
+    const fmt = (dt) => `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}T${pad2(dt.getHours())}${pad2(dt.getMinutes())}00`
+    dtStartLine = `DTSTART:${fmt(start)}`
+    dtEndLine = `DTEND:${fmt(end)}`
+  } else {
+    // No time set — all-day event. Per RFC 5545, DTEND for an all-day event
+    // is exclusive, so it's set to the following day.
+    const startStr = `${y}${pad2(m)}${pad2(d)}`
+    const endDate = new Date(y, m - 1, d + 1)
+    const endStr = `${endDate.getFullYear()}${pad2(endDate.getMonth() + 1)}${pad2(endDate.getDate())}`
+    dtStartLine = `DTSTART;VALUE=DATE:${startStr}`
+    dtEndLine = `DTEND;VALUE=DATE:${endStr}`
+  }
+
+  const summary = icsEscape(`${svc} - ${job.client_name || ''}`)
+  const description = icsEscape([
+    job.dog_name ? `Dog: ${job.dog_name}` : '',
+    `Service: ${svc}`,
+    'Love 4 Dogs - 601-946-3924',
+  ].filter(Boolean).join('\n'))
+  const uid = `love4dogs-${job.id || Date.now()}@love4dogs`
+
+  const icsContent = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Love4Dogs//EN',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    dtStartLine,
+    dtEndLine,
+    `SUMMARY:${summary}`,
+    `DESCRIPTION:${description}`,
+    'BEGIN:VALARM',
+    'TRIGGER:-PT30M',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Reminder',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'love4dogs-job.ics'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export default function Schedule({ clients, dogs }) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -219,12 +285,7 @@ export default function Schedule({ clients, dogs }) {
               {/* Action row */}
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                 <button
-                  onClick={() => {
-                    const icsUrl = `/api/ics?date=${job.job_date}&time=${job.job_time || ''}&service=${encodeURIComponent(SERVICES[job.service_type]?.name || '')}&client=${encodeURIComponent(job.client_name || '')}&dog=${encodeURIComponent(job.dog_name || '')}&duration=${job.duration || 60}`
-                    // Open the .ics response directly (rather than forcing a download) so
-                    // iOS/iPadOS Safari can hand it to the Calendar app natively.
-                    window.open(icsUrl, '_blank')
-                  }}
+                  onClick={() => downloadJobIcs(job)}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
                     background: '#f0f4ff', border: 'none', borderRadius: 8,
