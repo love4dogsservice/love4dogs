@@ -93,13 +93,13 @@ async function handleClients(req, res) {
     if (dog.id && !dog.isNew) {
       const { error } = await supabase
         .from('dogs')
-        .update({ name: dog.name.trim(), breed: dog.breed || '', notes: dog.notes || '' })
+        .update({ name: dog.name.trim(), species: dog.species || 'Dog', breed: dog.breed || '', notes: dog.notes || '' })
         .eq('id', dog.id)
       if (error) console.error('[clients] dog update error:', error)
     } else {
       const { error } = await supabase
         .from('dogs')
-        .insert([{ client_id: clientId, name: dog.name.trim(), breed: dog.breed || '', notes: dog.notes || '' }])
+        .insert([{ client_id: clientId, name: dog.name.trim(), species: dog.species || 'Dog', breed: dog.breed || '', notes: dog.notes || '' }])
       if (error) console.error('[clients] dog insert error:', error)
     }
   }

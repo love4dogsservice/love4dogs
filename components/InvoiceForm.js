@@ -105,7 +105,7 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
               <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Client name" style={inputStyle} />
             )}
           </Field>
-          <Field label="Dog(s)"><input value={dogNames} onChange={e => setDogNames(e.target.value)} placeholder="e.g. Buddy, Max" style={inputStyle} /></Field>
+          <Field label="Pet(s)"><input value={dogNames} onChange={e => setDogNames(e.target.value)} placeholder="e.g. Buddy, Max" style={inputStyle} /></Field>
           <Field label="Service Period">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>

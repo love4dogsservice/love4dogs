@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { COLORS, SERVICES } from '../lib/helpers'
+import { COLORS, SERVICES, PET_TYPES, petEmoji } from '../lib/helpers'
 import Toast from './Toast'
 
 const emptyTemplateEntry = () => ({ service_type: 1, time: '', duration: 15, notes: '' })
@@ -21,12 +21,12 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
   const [phone, setPhone] = useState(initial?.phone || '')
   const [address, setAddress] = useState(initial?.address || '')
   const [notes, setNotes] = useState(initial?.notes || '')
-  const [dogList, setDogList] = useState(initialDogs.length > 0 ? initialDogs : [{ name: '', breed: '', notes: '', isNew: true }])
+  const [dogList, setDogList] = useState(initialDogs.length > 0 ? initialDogs : [{ name: '', species: 'Dog', breed: '', notes: '', isNew: true }])
   const [template, setTemplate] = useState(initial?.default_schedule?.length > 0 ? initial.default_schedule : [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  const addDog = () => setDogList(prev => [...prev, { name: '', breed: '', notes: '', isNew: true }])
+  const addDog = () => setDogList(prev => [...prev, { name: '', species: 'Dog', breed: '', notes: '', isNew: true }])
   const removeDog = (i) => setDogList(prev => prev.filter((_, idx) => idx !== i))
   const updateDog = (i, field, val) => setDogList(prev => { const n = [...prev]; n[i] = { ...n[i], [field]: val }; return n })
 
@@ -91,30 +91,47 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
         <ClientField label="Notes" value={notes} onChange={setNotes} placeholder="Gate code, parking, etc." />
 
         <div style={{ marginTop: 16, marginBottom: 8 }}>
-          <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '0.9rem', marginBottom: 10 }}>🐾 Dogs</div>
-          {dogList.map((dog, i) => (
-            <div key={i} style={{ background: COLORS.lightBlue, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
-                <div>
-                  <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Dog Name *</div>
-                  <input value={dog.name} onChange={e => updateDog(i, 'name', e.target.value)} style={dogInputStyle} />
+          <div style={{ fontWeight: 900, color: COLORS.navy, fontSize: '0.9rem', marginBottom: 10 }}>🐾 Pets</div>
+          {dogList.map((dog, i) => {
+            // '' means "Other, custom type not typed yet" — distinct from a legacy/new
+            // record with no species at all, which should still default to "Dog".
+            const species = dog.species == null ? 'Dog' : dog.species
+            const isPreset = PET_TYPES.slice(0, -1).includes(species)
+            const typeValue = isPreset ? species : 'Other'
+            return (
+              <div key={i} style={{ background: COLORS.lightBlue, borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Pet Name *</div>
+                    <input value={dog.name} onChange={e => updateDog(i, 'name', e.target.value)} style={dogInputStyle} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Type</div>
+                    <select value={typeValue} onChange={e => updateDog(i, 'species', e.target.value === 'Other' ? '' : e.target.value)} style={dogInputStyle}>
+                      {PET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
+                {typeValue === 'Other' && (
+                  <input value={dog.species || ''} onChange={e => updateDog(i, 'species', e.target.value)} placeholder="e.g. Hamster, Bird, Rabbit"
+                    style={{ ...dogInputStyle, marginBottom: 6 }} />
+                )}
+                <div style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Breed</div>
                   <input value={dog.breed} onChange={e => updateDog(i, 'breed', e.target.value)} style={dogInputStyle} />
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <input value={dog.notes} onChange={e => updateDog(i, 'notes', e.target.value)} placeholder="Allergies, temperament, etc."
+                    style={{ flex: 1, border: 'none', borderBottom: '1px solid #aac', fontSize: '0.82rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600, marginRight: 8 }} />
+                  {dogList.length > 1 && (
+                    <button onClick={() => removeDog(i)} style={{ background: COLORS.lightRed, border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: '0.75rem', color: COLORS.coral, fontWeight: 700 }}>✕</button>
+                  )}
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <input value={dog.notes} onChange={e => updateDog(i, 'notes', e.target.value)} placeholder="Allergies, temperament, etc."
-                  style={{ flex: 1, border: 'none', borderBottom: '1px solid #aac', fontSize: '0.82rem', padding: '3px 2px', outline: 'none', background: 'transparent', fontWeight: 600, marginRight: 8 }} />
-                {dogList.length > 1 && (
-                  <button onClick={() => removeDog(i)} style={{ background: COLORS.lightRed, border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: '0.75rem', color: COLORS.coral, fontWeight: 700 }}>✕</button>
-                )}
-              </div>
-            </div>
-          ))}
+            )
+          })}
           <button onClick={addDog} style={{ background: 'none', border: `2px dashed ${COLORS.blue}`, borderRadius: 10, padding: '8px 16px', color: COLORS.darkBlue, fontWeight: 700, fontSize: '0.85rem', width: '100%' }}>
-            + Add Another Dog
+            + Add Another Pet
           </button>
         </div>
 
@@ -166,7 +183,7 @@ export default function Clients({ clients, dogs, onRefresh }) {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500) }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this client and all their dogs?')) return
+    if (!confirm('Delete this client and all their pets?')) return
     const res = await fetch(`/api/clients?id=${id}`, { method: 'DELETE' })
     if (!res.ok) { const j = await res.json(); alert('Delete failed: ' + j.error); return }
     await onRefresh()
@@ -213,7 +230,7 @@ export default function Clients({ clients, dogs, onRefresh }) {
                         <span key={dog.id} style={{
                           background: COLORS.lightBlue, color: COLORS.darkBlue,
                           fontSize: '0.75rem', fontWeight: 700, padding: '3px 10px', borderRadius: 12,
-                        }}>🐾 {dog.name}{dog.breed ? ` (${dog.breed})` : ''}</span>
+                        }}>{petEmoji(dog.species)} {dog.name}{dog.breed ? ` (${dog.breed})` : ''}</span>
                       ))}
                     </div>
                   )}

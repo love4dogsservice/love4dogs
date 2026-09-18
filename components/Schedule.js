@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   COLORS, SERVICES, SERVICE_COLORS, getDaysInMonth, getFirstDayOfMonth,
-  dateToKey, todayISO, MONTH_NAMES, DAY_NAMES, formatTime, parseVoiceJob
+  dateToKey, todayISO, MONTH_NAMES, DAY_NAMES, formatTime, parseVoiceJob, petEmoji
 } from '../lib/helpers'
 import Toast from './Toast'
 
@@ -608,7 +608,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
         </JobField>
 
         {clientDogs.length > 0 && (
-          <JobField label={clientDogs.length > 1 ? 'Dogs (all included — uncheck any not on this visit)' : 'Dog'}>
+          <JobField label={clientDogs.length > 1 ? 'Pets (all included — uncheck any not on this visit)' : 'Pet'}>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {clientDogs.map(d => (
                 <button
@@ -622,15 +622,15 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
                     color: dogIds.includes(d.id) ? '#fff' : COLORS.navy,
                     boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
                   }}
-                >🐾 {d.name}{d.breed ? ` (${d.breed})` : ''}</button>
+                >{petEmoji(d.species)} {d.name}{d.breed ? ` (${d.breed})` : ''}</button>
               ))}
             </div>
           </JobField>
         )}
 
         {(!clientId || clientId === '__manual__') && (
-          <JobField label="Dog Name">
-            <input value={dogName} onChange={e => setDogName(e.target.value)} placeholder="Dog's name" style={inputStyle} />
+          <JobField label="Pet Name">
+            <input value={dogName} onChange={e => setDogName(e.target.value)} placeholder="Pet's name" style={inputStyle} />
           </JobField>
         )}
 
