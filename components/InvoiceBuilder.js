@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { COLORS, SERVICES, calcLineTotal, getQtyLabel } from '../lib/helpers'
+import { COLORS, SERVICES, CUSTOM_SERVICE_IDX, calcLineTotal, getQtyLabel } from '../lib/helpers'
 import Toast from './Toast'
 
 export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHome }) {
@@ -42,6 +42,8 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
       date: job.job_date,
       qty: job.duration ? String(job.duration) : (job.service_type === 2 || job.service_type === 3 ? '1' : '15'),
       dog_name: job.dog_name || '',
+      custom_description: job.custom_description || '',
+      custom_amount: job.custom_amount || '',
     }))
     setLineItems(items.length > 0 ? items : [{ service_idx: 1, date: '', qty: '15', dog_name: '' }])
     setStep(3)
@@ -54,7 +56,7 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
   const addLineItem = () => setLineItems(prev => [...prev, { service_idx: 1, date: '', qty: '15', dog_name: '' }])
   const removeLineItem = (i) => setLineItems(prev => prev.filter((_, idx) => idx !== i))
 
-  const total = lineItems.reduce((sum, item) => sum + calcLineTotal(item.service_idx, parseFloat(item.qty)), 0)
+  const total = lineItems.reduce((sum, item) => sum + calcLineTotal(item.service_idx, parseFloat(item.qty), item.custom_amount), 0)
 
   const handleSave = async () => {
     setSaving(true)
@@ -192,7 +194,8 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
                   </thead>
                   <tbody>
                     {lineItems.map((item, i) => {
-                      const tot = calcLineTotal(item.service_idx, parseFloat(item.qty))
+                      const isCustom = item.service_idx === CUSTOM_SERVICE_IDX
+                      const tot = calcLineTotal(item.service_idx, parseFloat(item.qty), item.custom_amount)
                       return (
                         <tr key={i} style={{ background: i % 2 === 0 ? '#f7fbfe' : '#fff' }}>
                           <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee' }}>
@@ -205,10 +208,23 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
                             <input type="date" value={item.date} onChange={e => updateLineItem(i, 'date', e.target.value)}
                               style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.75rem', padding: '3px 2px', width: '100%', background: 'transparent', color: '#111', outline: 'none', fontWeight: 600 }} />
                           </td>
-                          <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', whiteSpace: 'nowrap' }}>
-                            <input type="number" value={item.qty} onChange={e => updateLineItem(i, 'qty', e.target.value)} min="1"
-                              style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.8rem', padding: '3px 2px', width: 40, background: 'transparent', color: '#111', outline: 'none', fontWeight: 600, textAlign: 'center' }} />
-                            <span style={{ color: '#888', fontSize: '0.65rem', marginLeft: 2 }}>{getQtyLabel(item.service_idx)}</span>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', whiteSpace: isCustom ? 'normal' : 'nowrap' }}>
+                            {isCustom ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 110 }}>
+                                <input value={item.custom_description || ''} onChange={e => updateLineItem(i, 'custom_description', e.target.value)}
+                                  placeholder="Description"
+                                  style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.75rem', padding: '2px', background: 'transparent', color: '#111', outline: 'none', fontWeight: 600 }} />
+                                <input type="number" value={item.custom_amount || ''} onChange={e => updateLineItem(i, 'custom_amount', e.target.value)} min="0" step="0.01"
+                                  placeholder="Amount $"
+                                  style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.75rem', padding: '2px', background: 'transparent', color: '#111', outline: 'none', fontWeight: 600 }} />
+                              </div>
+                            ) : (
+                              <>
+                                <input type="number" value={item.qty} onChange={e => updateLineItem(i, 'qty', e.target.value)} min="1"
+                                  style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.8rem', padding: '3px 2px', width: 40, background: 'transparent', color: '#111', outline: 'none', fontWeight: 600, textAlign: 'center' }} />
+                                <span style={{ color: '#888', fontSize: '0.65rem', marginLeft: 2 }}>{getQtyLabel(item.service_idx)}</span>
+                              </>
+                            )}
                           </td>
                           <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', textAlign: 'right', fontWeight: 800, color: COLORS.coral, fontSize: '0.85rem' }}>
                             {tot > 0 ? `$${tot.toFixed(2)}` : ''}

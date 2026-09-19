@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-  COLORS, SERVICES, SERVICE_COLORS, getDaysInMonth, getFirstDayOfMonth,
-  dateToKey, todayISO, MONTH_NAMES, DAY_NAMES, formatTime, parseVoiceJob, petEmoji
+  COLORS, SERVICES, SERVICE_COLORS, CUSTOM_SERVICE_IDX, getDaysInMonth, getFirstDayOfMonth,
+  dateToKey, todayISO, MONTH_NAMES, DAY_NAMES, formatTime, parseVoiceJob, petEmoji, getServiceLabel
 } from '../lib/helpers'
 import Toast from './Toast'
 
@@ -16,7 +16,7 @@ const pad2 = (n) => String(n).padStart(2, '0')
 const icsEscape = (text) => String(text || '').replace(/\\/g, '\\\\').replace(/,/g, '\\,').replace(/;/g, '\\;').replace(/\n/g, '\\n')
 
 function buildVeventBlock(job) {
-  const svc = SERVICES[job.service_type]?.name || 'Job'
+  const svc = getServiceLabel(job.service_type, job.custom_description) || 'Job'
   const [y, m, d] = job.job_date.split('-').map(Number)
 
   let dtStartLine, dtEndLine
@@ -305,7 +305,9 @@ export default function Schedule({ clients, dogs }) {
                   </div>
                   {job.dog_name && <div style={{ color: '#666', fontSize: '0.78rem' }}>🐾 {job.dog_name}</div>}
                   <div style={{ color: '#888', fontSize: '0.75rem', marginTop: 2 }}>
-                    {SERVICES[job.service_type]?.name}{job.job_time && ` · ${formatTime(job.job_time)}`}
+                    {getServiceLabel(job.service_type, job.custom_description)}
+                    {job.service_type === CUSTOM_SERVICE_IDX && job.custom_amount ? ` · $${parseFloat(job.custom_amount).toFixed(2)}` : ''}
+                    {job.job_time && ` · ${formatTime(job.job_time)}`}
                   </div>
                   {job.notes && <div style={{ color: '#999', fontSize: '0.72rem', marginTop: 2 }}>{job.notes}</div>}
                 </div>
@@ -329,7 +331,7 @@ export default function Schedule({ clients, dogs }) {
                   📅 Add to Calendar
                 </button>
                 <button onClick={() => {
-                  const svc = SERVICES[job.service_type]?.name || 'Job'
+                  const svc = getServiceLabel(job.service_type, job.custom_description) || 'Job'
                   const timeStr = job.job_time ? formatTime(job.job_time) : ''
                   const dogPart = job.dog_name ? ` (${job.dog_name})` : ''
                   const body = `Hi Mom! Reminder: ${svc} for ${job.client_name}${dogPart}${timeStr ? ` today at ${timeStr}` : ' today'}. - Millie Ruth and Ayres 🐾`
@@ -470,6 +472,8 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
   const [time, setTime] = useState(initial?.job_time || '')
   const [svcType, setSvcType] = useState(initial?.service_type || 1)
   const [duration, setDuration] = useState(initial?.duration ?? (initial?.service_type === 2 || initial?.service_type === 3 ? 1 : 15))
+  const [customDescription, setCustomDescription] = useState(initial?.custom_description || '')
+  const [customAmount, setCustomAmount] = useState(initial?.custom_amount ?? '')
   const [notes, setNotes] = useState(initial?.notes || '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -516,11 +520,14 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
     const combinedDogName = selectedDogs.map(d => d.name).join(', ')
     const singleDogId = selectedDogs.length === 1 ? selectedDogs[0].id : null
 
+    const isCustom = svcType === CUSTOM_SERVICE_IDX
     const base = {
       client_id: clientId && clientId !== '__manual__' ? clientId : null, client_name: clientName.trim(),
       dog_id: singleDogId, dog_name: combinedDogName,
       job_time: time || null,
-      service_type: svcType, duration: duration || null, notes: notes.trim(), invoiced: false,
+      service_type: svcType, duration: isCustom ? null : (duration || null), notes: notes.trim(), invoiced: false,
+      custom_description: isCustom ? customDescription.trim() : null,
+      custom_amount: isCustom ? (parseFloat(customAmount) || 0) : null,
     }
 
     let savedJobs = []
@@ -561,7 +568,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
       if (delay > 0) {
         setTimeout(() => {
           new Notification('🐾 Love 4 Dogs — Job in 30 min', {
-            body: `${clientName}${dogName ? ` · ${dogName}` : ''} · ${SERVICES[svcType]?.name}`,
+            body: `${clientName}${dogName ? ` · ${dogName}` : ''} · ${getServiceLabel(svcType, customDescription)}`,
             icon: '/logo192.png',
           })
         }, delay)
@@ -574,7 +581,7 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
 
   const canSave = clientName.trim() && (
     recurring ? (recurDays.length > 0 && recurEnd && occurrences.length > 0) : !!date
-  )
+  ) && (svcType !== CUSTOM_SERVICE_IDX || customDescription.trim())
 
   const inputStyle = { width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }
 
@@ -653,9 +660,22 @@ function JobForm({ initial, defaultDate, clients, onSave, onCancel }) {
           </select>
         </JobField>
 
-        <JobField label={svcType === 1 || svcType === 4 ? 'Duration (min)' : 'Visits'}>
-          <input type="number" value={duration} min="1" onChange={e => setDuration(parseInt(e.target.value) || 1)} style={inputStyle} />
-        </JobField>
+        {svcType === CUSTOM_SERVICE_IDX ? (
+          <>
+            <JobField label="Description">
+              <input value={customDescription} onChange={e => setCustomDescription(e.target.value)}
+                placeholder="e.g. Nail trim, extra pickup fee" style={inputStyle} />
+            </JobField>
+            <JobField label="Amount ($)">
+              <input type="number" value={customAmount} min="0" step="0.01"
+                onChange={e => setCustomAmount(e.target.value)} placeholder="0.00" style={inputStyle} />
+            </JobField>
+          </>
+        ) : (
+          <JobField label={svcType === 1 || svcType === 4 ? 'Duration (min)' : 'Visits'}>
+            <input type="number" value={duration} min="1" onChange={e => setDuration(parseInt(e.target.value) || 1)} style={inputStyle} />
+          </JobField>
+        )}
 
         <JobField label="Notes">
           <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any special instructions..." style={inputStyle} />

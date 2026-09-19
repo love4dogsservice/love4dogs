@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
-import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, formatDateShort } from '../../lib/helpers'
+import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, getServiceLabel, formatDateShort } from '../../lib/helpers'
 
 export default function InvoicePage() {
   const router = useRouter()
@@ -22,7 +22,7 @@ export default function InvoicePage() {
 
   const lineItems = typeof inv.line_items === 'string' ? JSON.parse(inv.line_items) : (inv.line_items || [])
   const rows = lineItems.filter(r => r.service_idx > 0)
-  const total = rows.reduce((s, r) => s + calcLineTotal(r.service_idx, parseFloat(r.qty)), 0)
+  const total = rows.reduce((s, r) => s + calcLineTotal(r.service_idx, parseFloat(r.qty), r.custom_amount), 0)
   const period = inv.period_start
     ? `${inv.period_start}${inv.period_end ? ' – ' + inv.period_end : ''}`
     : ''
@@ -87,15 +87,16 @@ export default function InvoicePage() {
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                const tot = calcLineTotal(r.service_idx, parseFloat(r.qty))
+                const tot = calcLineTotal(r.service_idx, parseFloat(r.qty), r.custom_amount)
+                const isCustom = SERVICES[r.service_idx]?.type === 'custom'
                 return (
                   <tr key={i} style={{ borderBottom: '1px dashed #eee' }}>
                     <td style={{ padding: '8px 8px', color: COLORS.navy, fontWeight: 600, verticalAlign: 'top' }}>
-                      {SERVICES[r.service_idx]?.name}
+                      {getServiceLabel(r.service_idx, r.custom_description)}
                       <div style={{ color: '#888', fontSize: '0.68rem' }}>{getRateLabel(r.service_idx)}</div>
                     </td>
                     <td style={{ padding: '8px 8px', color: '#555', fontSize: '0.78rem', verticalAlign: 'top' }}>{r.date ? formatDateShort(r.date) : ''}</td>
-                    <td style={{ padding: '8px 8px', color: '#555', verticalAlign: 'top' }}>{r.qty} {getQtyLabel(r.service_idx)}</td>
+                    <td style={{ padding: '8px 8px', color: '#555', verticalAlign: 'top' }}>{isCustom ? '' : `${r.qty} ${getQtyLabel(r.service_idx)}`}</td>
                     <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 800, color: COLORS.coral, verticalAlign: 'top' }}>${tot.toFixed(2)}</td>
                   </tr>
                 )

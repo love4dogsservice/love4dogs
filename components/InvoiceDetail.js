@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, buildShareText, formatDateShort } from '../lib/helpers'
+import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel, getServiceLabel, buildShareText, formatDateShort } from '../lib/helpers'
 import Toast from './Toast'
 
 export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDelete, onHome }) {
@@ -161,17 +161,18 @@ export default function InvoiceDetail({ inv, onEdit, onBack, onTogglePaid, onDel
               </thead>
               <tbody>
                 {filledRows.map((r, i) => {
-                  const tot = calcLineTotal(r.service_idx, parseFloat(r.qty))
+                  const tot = calcLineTotal(r.service_idx, parseFloat(r.qty), r.custom_amount)
+                  const isCustom = SERVICES[r.service_idx]?.type === 'custom'
                   return (
                     <tr key={i} style={{ borderBottom: '1px dashed #eee' }}>
                       <td style={{ padding: '8px 8px', color: COLORS.navy, fontWeight: 600 }}>
-                        {SERVICES[r.service_idx]?.name}
+                        {getServiceLabel(r.service_idx, r.custom_description)}
                         <div style={{ color: '#888', fontSize: '0.68rem' }}>{getRateLabel(r.service_idx)}</div>
                       </td>
                       <td style={{ padding: '8px 8px', color: '#555', fontSize: '0.78rem' }}>
                         {r.date ? formatDateShort(r.date) : ''}
                       </td>
-                      <td style={{ padding: '8px 8px', color: '#555' }}>{r.qty} {getQtyLabel(r.service_idx)}</td>
+                      <td style={{ padding: '8px 8px', color: '#555' }}>{isCustom ? '' : `${r.qty} ${getQtyLabel(r.service_idx)}`}</td>
                       <td style={{ padding: '8px 8px', textAlign: 'right', fontWeight: 800, color: COLORS.coral }}>${tot.toFixed(2)}</td>
                     </tr>
                   )

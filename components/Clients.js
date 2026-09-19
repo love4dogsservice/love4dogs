@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { COLORS, SERVICES, PET_TYPES, petEmoji } from '../lib/helpers'
+import { COLORS, SERVICES, CUSTOM_SERVICE_IDX, PET_TYPES, petEmoji } from '../lib/helpers'
 import Toast from './Toast'
 
 const emptyTemplateEntry = () => ({ service_type: 1, time: '', duration: 15, notes: '' })
@@ -146,7 +146,7 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
                 <div>
                   <div style={{ fontSize: '0.65rem', color: COLORS.coral, fontWeight: 800, textTransform: 'uppercase', marginBottom: 2 }}>Service</div>
                   <select value={entry.service_type} onChange={e => updateTemplateEntry(i, 'service_type', e.target.value)} style={dogInputStyle}>
-                    {SERVICES.slice(1).map((s, si) => <option key={si} value={si + 1}>{s.name}</option>)}
+                    {SERVICES.slice(1, CUSTOM_SERVICE_IDX).map((s, si) => <option key={si} value={si + 1}>{s.name}</option>)}
                   </select>
                 </div>
                 <div>

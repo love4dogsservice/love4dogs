@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SERVICES, COLORS, calcLineTotal, getRateLabel, getQtyLabel } from '../lib/helpers'
+import { SERVICES, CUSTOM_SERVICE_IDX, COLORS, calcLineTotal, getRateLabel, getQtyLabel } from '../lib/helpers'
 import Toast from './Toast'
 
 const inputStyle = { width: '100%', border: 'none', borderBottom: '2px solid #ccd', fontSize: '0.9rem', padding: '4px 2px', outline: 'none', color: '#111', background: 'transparent', fontWeight: 600 }
@@ -49,7 +49,7 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
     setLineItems(prev => { const n = [...prev]; n[i] = { ...n[i], [field]: field === 'service_idx' ? parseInt(val) : val }; return n })
   }
 
-  const total = lineItems.reduce((sum, item) => sum + calcLineTotal(item.service_idx, parseFloat(item.qty)), 0)
+  const total = lineItems.reduce((sum, item) => sum + calcLineTotal(item.service_idx, parseFloat(item.qty), item.custom_amount), 0)
 
   const handleSave = async () => {
     if (!clientName.trim()) { showToast('Please enter a client name'); return }
@@ -134,7 +134,8 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
               </thead>
               <tbody>
                 {lineItems.map((item, i) => {
-                  const tot = calcLineTotal(item.service_idx, parseFloat(item.qty))
+                  const isCustom = item.service_idx === CUSTOM_SERVICE_IDX
+                  const tot = calcLineTotal(item.service_idx, parseFloat(item.qty), item.custom_amount)
                   return (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#f7fbfe' : '#fff' }}>
                       <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee' }}>
@@ -147,12 +148,29 @@ export default function InvoiceForm({ initial, clients, dogs, onSave, onCancel, 
                         <input type="date" value={item.date} onChange={e => updateItem(i, 'date', e.target.value)}
                           style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.75rem', padding: '3px 2px', width: '100%', background: 'transparent', outline: 'none', fontWeight: 600 }} />
                       </td>
-                      <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', whiteSpace: 'nowrap' }}>
-                        <input type="number" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} min="1"
-                          style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.82rem', padding: '3px 2px', width: 40, background: 'transparent', outline: 'none', fontWeight: 600, textAlign: 'center' }} />
-                        {item.service_idx > 0 && <span style={{ color: '#888', fontSize: '0.65rem', marginLeft: 2 }}>{getQtyLabel(item.service_idx)}</span>}
-                      </td>
-                      <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', color: '#888', fontSize: '0.72rem' }}>{getRateLabel(item.service_idx)}</td>
+                      {isCustom ? (
+                        <>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', minWidth: 120 }}>
+                            <input value={item.custom_description || ''} onChange={e => updateItem(i, 'custom_description', e.target.value)}
+                              placeholder="Description"
+                              style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.8rem', padding: '3px 2px', width: '100%', background: 'transparent', outline: 'none', fontWeight: 600 }} />
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee' }}>
+                            <input type="number" value={item.custom_amount || ''} onChange={e => updateItem(i, 'custom_amount', e.target.value)} min="0" step="0.01"
+                              placeholder="0.00"
+                              style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.8rem', padding: '3px 2px', width: 70, background: 'transparent', outline: 'none', fontWeight: 600 }} />
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', whiteSpace: 'nowrap' }}>
+                            <input type="number" value={item.qty} onChange={e => updateItem(i, 'qty', e.target.value)} min="1"
+                              style={{ border: 'none', borderBottom: '1px dashed #ccd', fontSize: '0.82rem', padding: '3px 2px', width: 40, background: 'transparent', outline: 'none', fontWeight: 600, textAlign: 'center' }} />
+                            {item.service_idx > 0 && <span style={{ color: '#888', fontSize: '0.65rem', marginLeft: 2 }}>{getQtyLabel(item.service_idx)}</span>}
+                          </td>
+                          <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', color: '#888', fontSize: '0.72rem' }}>{getRateLabel(item.service_idx)}</td>
+                        </>
+                      )}
                       <td style={{ padding: '6px 8px', borderBottom: '1px dashed #eee', textAlign: 'right', fontWeight: 800, color: COLORS.coral, fontSize: '0.85rem' }}>{tot > 0 ? `$${tot.toFixed(2)}` : ''}</td>
                     </tr>
                   )
