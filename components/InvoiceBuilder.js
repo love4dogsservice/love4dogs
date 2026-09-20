@@ -40,7 +40,7 @@ export default function InvoiceBuilder({ clients, dogs, onSaved, onCancel, onHom
       job_id: job.id,
       service_idx: job.service_type || 1,
       date: job.job_date,
-      qty: job.duration ? String(job.duration) : (job.service_type === 2 || job.service_type === 3 ? '1' : '15'),
+      qty: job.service_type === 1 ? '15' : '1',
       dog_name: job.dog_name || '',
       custom_description: job.custom_description || '',
       custom_amount: job.custom_amount || '',

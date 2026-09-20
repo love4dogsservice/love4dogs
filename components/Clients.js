@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { COLORS, SERVICES, CUSTOM_SERVICE_IDX, PET_TYPES, petEmoji } from '../lib/helpers'
 import Toast from './Toast'
 
-const emptyTemplateEntry = () => ({ service_type: 1, time: '', duration: 15, notes: '' })
+const emptyTemplateEntry = () => ({ service_type: 1, time: '', notes: '' })
 
 function ClientField({ label, value, onChange, placeholder }) {
   return (
@@ -34,7 +34,7 @@ function ClientForm({ initial, initialDogs, onSave, onCancel }) {
   const removeTemplateEntry = (i) => setTemplate(prev => prev.filter((_, idx) => idx !== i))
   const updateTemplateEntry = (i, field, val) => setTemplate(prev => {
     const n = [...prev]
-    n[i] = { ...n[i], [field]: field === 'service_type' ? parseInt(val) : field === 'duration' ? (parseInt(val) || 1) : val }
+    n[i] = { ...n[i], [field]: field === 'service_type' ? parseInt(val) : val }
     return n
   })
 

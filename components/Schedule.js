@@ -1000,7 +1000,7 @@ function ApplyTemplatePanel({ clients, onSaved, onCancel }) {
       job_date: date,
       job_time: entry.time || null,
       service_type: entry.service_type || 1,
-      duration: entry.duration || (entry.service_type === 2 || entry.service_type === 3 ? 1 : 15),
+      duration: entry.service_type === 2 || entry.service_type === 3 ? 1 : 15,
       notes: entry.notes || '',
       invoiced: false,
     }))
